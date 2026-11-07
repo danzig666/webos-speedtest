@@ -1,0 +1,38 @@
+{
+  "paging": {
+    "page": 1,
+    "count": 1,
+    "maxPage": 1,
+    "itemsTotal": 1,
+    "prevUrl": null,
+    "nextUrl": null
+  },
+  "packages": [
+    {
+      "id": "io.github.danzig666.speedtest",
+      "title": "Speedtest CLI",
+      "iconUri": "https://raw.githubusercontent.com/danzig666/webos-speedtest/main/app/largeIcon.png",
+      "manifestUrl": "https://raw.githubusercontent.com/danzig666/webos-speedtest/main/homebrew/io.github.danzig666.speedtest.manifest.json",
+      "manifest": {
+        "id": "io.github.danzig666.speedtest",
+        "version": "1.3.0",
+        "type": "web",
+        "title": "Speedtest CLI",
+        "appDescription": "Runs the official Ookla Speedtest CLI on the TV and shows its live terminal output.",
+        "iconUri": "https://raw.githubusercontent.com/danzig666/webos-speedtest/main/app/largeIcon.png",
+        "sourceUrl": "https://github.com/danzig666/webos-speedtest",
+        "rootRequired": true,
+        "ipkUrl": "https://github.com/danzig666/webos-speedtest/releases/download/v1.3.0/io.github.danzig666.speedtest_1.3.0_all.ipk",
+        "ipkHash": {
+          "sha256": "24015051c7f69be9323765bdcfbebaadadc5cf21eb699ffc470ae12001473b4f"
+        },
+        "ipkSize": 452622
+      },
+      "pool": "main",
+      "requirements": {
+        "webosRelease": ">=4.0"
+      },
+      "shortDescription": "Runs the official Ookla Speedtest CLI on the TV with live terminal output and a graphical results screen. Downloads the CLI itself (SHA-256 pinned) and asks you to accept Ookla's terms. Requires root."
+    }
+  ]
+}
