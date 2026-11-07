@@ -225,7 +225,7 @@
 
   function fmtBytes(n) { return n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.round(n / 1024) + ' KB'; }
 
-  function downloadCli() {
+  function downloadCli(afterElevation) {
     if (state === 'running' || state === 'stopping') return;
     clearError();
     ui.live.hidden = false;
@@ -239,6 +239,17 @@
       if (sub !== mySub) return;
       if (r.returnValue === false) {
         ui.live.hidden = true;
+        if (r.errorCode === 'NOT_ELEVATED' && afterElevation !== true && window.Luna.available()) {
+          // Downloads only run as root: elevate through Homebrew Channel, then retry.
+          finish('idle');
+          setState('running', 'Elevating…');
+          elevate(function (ok) {
+            if (!ok) { setState('failed'); return; }
+            setState('idle');
+            setTimeout(function () { downloadCli(true); }, 1500); // let Luna start the elevated instance
+          });
+          return;
+        }
         finish('failed');
         showError({ code: r.errorCode, message: r.errorText || 'Download failed', hint: r.hint });
         return;
@@ -256,10 +267,15 @@
       } else if (r.event === 'install-done') {
         ui.live.hidden = true;
         if (r.ok) {
-          writeLocal('Installed: ' + r.version + '\r\nPress Start test.\r\n');
           ui.version.textContent = r.version;
           finish('idle');
-          focusEl(ui.start);
+          if (r.termsAccepted) {
+            writeLocal('Installed: ' + r.version + '\r\nPress Start test.\r\n');
+            focusEl(ui.start);
+          } else {
+            writeLocal('Installed: ' + r.version + '\r\nOokla\'s terms must be accepted before the first test.\r\n');
+            openTerms();
+          }
         } else {
           writeLocal('Download failed.\r\n');
           finish(r.error && r.error.code === 'CANCELLED' ? 'cancelled' : 'failed');
@@ -281,7 +297,9 @@
   function closeTerms(silent) {
     if (ui.terms.hidden) return;
     ui.terms.hidden = true;
-    if (!silent) { ui.error.hidden = false; focusEl(ui.termsBtn); }
+    if (silent) return;
+    if (!ui.termsBtn.hidden) { ui.error.hidden = false; focusEl(ui.termsBtn); } // opened from a licence error
+    else { writeLocal('Terms not accepted. Press Start test when you are ready.\r\n'); focusEl(ui.start); }
   }
 
   function cancelTest() {
@@ -293,13 +311,15 @@
     });
   }
 
-  function elevate() {
+  function elevate(onDone) {
+    onDone = typeof onDone === 'function' ? onDone : null;
     ui.elevate.disabled = true;
     writeLocal('Asking Homebrew Channel to elevate ' + SERVICE_ID + '…\r\n');
     window.Luna.call(HBCHANNEL + '/elevateService', { id: SERVICE_ID }, function (r) {
       if (r.returnValue === false) {
         ui.elevate.disabled = false;
-        showError({ message: 'Elevation failed: ' + (r.errorText || 'unknown error'), hint: 'Homebrew Channel must run as root. Over SSH run:\n  /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/elevate-service ' + SERVICE_ID });
+        showError({ code: 'ELEVATE_FAILED', message: 'Elevation failed: ' + (r.errorText || 'unknown error'), hint: 'Homebrew Channel must run as root (open it once after boot). Over SSH run:\n  /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/elevate-service ' + SERVICE_ID });
+        if (onDone) onDone(false);
         return;
       }
       // Restart the jailed instance so the next call runs elevated. "[.]" keeps
@@ -308,8 +328,9 @@
         ui.elevate.disabled = false;
         clearError();
         uid = null;
-        writeLocal('Service elevated. Press Start again.\r\n');
-        focusEl(ui.start);
+        writeLocal('Service elevated.\r\n');
+        if (onDone) onDone(true);
+        else { writeLocal('Press Start again.\r\n'); focusEl(ui.start); }
       });
     });
   }
@@ -423,7 +444,7 @@
   });
 
   ui.start.addEventListener('click', function () { startTest(false); });
-  ui.download.addEventListener('click', downloadCli);
+  ui.download.addEventListener('click', function () { downloadCli(false); });
   ui.termsBtn.addEventListener('click', openTerms);
   ui.accept.addEventListener('click', function () { startTest(true); });
   ui.decline.addEventListener('click', function () { closeTerms(); });
@@ -431,7 +452,7 @@
   ui.resultsBtn.addEventListener('click', openResults);
   ui.again.addEventListener('click', function () { startTest(false); });
   ui.consoleBtn.addEventListener('click', function () { closeResults(); });
-  ui.elevate.addEventListener('click', elevate);
+  ui.elevate.addEventListener('click', function () { elevate(); });
   ui.mode.addEventListener('click', function () { setMode(transport === 'pipe' ? 'pty' : 'pipe'); });
 
   // App closing: stop the process. The service also kills it when the

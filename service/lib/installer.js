@@ -78,7 +78,10 @@ function Installer(runner, config) {
     url: config.url || process.env.SPEEDTEST_DOWNLOAD_URL || (pkg && pkg.url),
     sha256: config.sha256 || process.env.SPEEDTEST_DOWNLOAD_SHA256 || (pkg && pkg.sha256),
     timeoutMs: config.timeoutMs || 3 * 60 * 1000,
-    verify: config.verify || null // test hook: function(binary, cb(err, versionText))
+    verify: config.verify || null, // test hook: function(binary, cb(err, versionText))
+    // Downloads need root: on webOS 10 the jailed service cannot write
+    // /media/developer/speedtest (confirmed on an LG C3).
+    isRoot: config.isRoot || function () { return typeof process.getuid !== 'function' || process.getuid() === 0; }
   };
   this.active = null;
 }
@@ -102,6 +105,10 @@ Installer.prototype.install = function (onEvent) {
     throw err('BUSY', 'A test or download is already running.', 'Wait for it to finish or press Cancel.');
   }
   var cfg = this.config;
+  if (!cfg.isRoot()) {
+    throw err('NOT_ELEVATED', 'Downloading the Speedtest CLI needs the elevated (root) service.',
+      'The app elevates the service through Homebrew Channel. Over SSH:\n  /media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/elevate-service io.github.danzig666.speedtest.service');
+  }
   var target = this.runner.config.binary;
   var job = { cancelled: false, req: null };
   this.active = job;
@@ -118,7 +125,7 @@ Installer.prototype.install = function (onEvent) {
     self.runner.blockedBy = null;
     if (job.cancelled && !version) error = err('CANCELLED', 'Download cancelled.');
     var e = { event: 'install-done', ok: !error, target: target };
-    if (error) e.error = error; else e.version = version;
+    if (error) e.error = error; else { e.version = version; e.termsAccepted = termsAccepted(self.runner.config.home); }
     emit(e);
   }
 
@@ -157,6 +164,16 @@ Installer.prototype.install = function (onEvent) {
   });
   return job;
 };
+
+/** Has the CLI already stored licence acceptance for this HOME? */
+function termsAccepted(home) {
+  try {
+    var txt = fs.readFileSync(path.join(home, '.config', 'ookla', 'speedtest-cli.json'), 'utf8');
+    return /LicenseAccepted/.test(txt);
+  } catch (e) {
+    return false;
+  }
+}
 
 function writeBinary(target, data, cb) {
   var dir = path.dirname(target);
@@ -222,4 +239,4 @@ function download(url, job, onProgress, cb0, redirects) {
   });
 }
 
-module.exports = { Installer: Installer, extractFromTar: extractFromTar, packageFor: packageFor, PACKAGES: PACKAGES };
+module.exports = { Installer: Installer, termsAccepted: termsAccepted, extractFromTar: extractFromTar, packageFor: packageFor, PACKAGES: PACKAGES };

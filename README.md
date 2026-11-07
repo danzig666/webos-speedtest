@@ -37,8 +37,8 @@ app (HTML/CSS/JS)  ──Luna subscription──▶  io.github.danzig666.speedte
      '{"id":"com.ares.defaultName","ipkUrl":"/tmp/io.github.danzig666.speedtest_1.0.0_all.ipk","subscribe":true}'
    ```
 2. Open **Speedtest CLI** from the launcher and press **Start test**.
-3. The first time, the app says the CLI is missing. Press **Download Speedtest CLI** (it already has focus). The app downloads the official build from `install.speedtest.net` and installs it. The CLI is never included in this repo or the .ipk.
-4. Press **Start test** again. Ookla then asks for its licence and privacy terms: press **Review terms**, read them, and choose **I accept** or **Decline**. Decline is selected by default.
+3. The first time, the app says the CLI is missing. Press **Download Speedtest CLI** (it already has focus). If the service isn't elevated yet, the app elevates it through Homebrew Channel first, then downloads the official build from `install.speedtest.net` and installs it. The CLI is never included in this repo or the .ipk.
+4. Ookla's terms then open by themselves. Read them and choose **I accept**, which starts the first test, or **Decline**. Decline is selected by default.
 
 ## Binary setup
 
@@ -51,9 +51,9 @@ app (HTML/CSS/JS)  ──Luna subscription──▶  io.github.danzig666.speedte
 3. extract only the `speedtest` file, write it with mode 0755, and rename it into place;
 4. check it the same way as before every test: ELF CPU type, then `--version`.
 
-The jailed service may not be allowed to write `/media/developer/speedtest`. If the download ends with *Cannot write …*, press **Elevate service** and try again, or use the manual steps below.
+Downloading needs the elevated service: on webOS 10 (tested on an LG C3), the jailed service cannot write `/media/developer/speedtest`. The service therefore refuses to download until it runs as root, and the app elevates it through Homebrew Channel's `elevateService` and retries on its own. If elevation fails, open Homebrew Channel once (it must run as root) and try again, or use the manual steps below.
 
-**Licence and privacy terms.** On a fresh install the CLI refuses to test until you accept Ookla's terms. The app shows the CLI's notice and a **Review terms** dialog. **I accept** runs that test once with `--accept-license --accept-gdpr`, and the CLI stores the acceptance in `/media/developer/speedtest/.config/ookla/`. Later tests run without those flags. The app never sends them unless you press **I accept**.
+**Licence and privacy terms.** On a fresh install the CLI refuses to test until you accept Ookla's terms. Right after a download, the app opens the terms dialog unless the acceptance is already stored. If you decline, Start shows the CLI's notice and a **Review terms** button. **I accept** runs that test once with `--accept-license --accept-gdpr`, and the CLI stores the acceptance in `/media/developer/speedtest/.config/ookla/`. Later tests run without those flags. The app never sends them unless you press **I accept**.
 
 ### Manually over SSH
 
@@ -175,7 +175,7 @@ tail -f /var/log/messages | grep -i speedtest
 | Message | Fix |
 |---|---|
 | *Speedtest CLI not found* | Press **Download Speedtest CLI**, or install it manually at the path under [Binary setup](#binary-setup). If it is already there, [elevate](#elevation-when-needed) the service. |
-| *Cannot write /media/developer/speedtest/…* | The jailed service may not write there. Press **Elevate service** and download again. |
+| *Downloading … needs the elevated (root) service* / *Elevation failed* | Open Homebrew Channel once so it runs as root, then press Download again, or run `elevate-service` over SSH (see [Elevation](#elevation-when-needed)). |
 | *does not match the expected SHA-256* | The download was corrupted or altered, and nothing was installed. Try again, or install manually. |
 | *Download failed: HTTP …* / *Cannot download from …* | The TV can't reach `install.speedtest.net`. Check the network and DNS, or install manually. |
 | *not executable* | `chmod 755 /media/developer/speedtest/speedtest` |
@@ -198,7 +198,7 @@ tail -f /var/log/messages | grep -i speedtest
 | Luna service contract, subscription cancel → kill | Fake `webos-service` |
 | In-app download: pinned SHA-256 matches the official armel/aarch64/x86_64 archives; extracting the armel archive yields the official 2,287,444-byte ARM binary | Archives downloaded in the sandbox; CI repeats it against `install.speedtest.net` |
 | UI with remote keys, results screen | Chromium (Playwright) via the dev harness |
-| **Anything on the LG C3 / webOS 10.2.2** | **Not run.** The build environment cannot reach your TV. |
+| App on the LG C3 / webOS 10.2.2 | **Reported working by the owner** (v1.1.0). The download failed until the service was elevated, so v1.2.0 elevates first. |
 
 Still to verify on the TV, in this order:
 

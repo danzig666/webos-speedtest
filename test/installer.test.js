@@ -36,6 +36,7 @@ function install(installer) {
 function setup(opts) {
   var dir = tmp();
   var runner = new Runner({ binary: path.join(dir, 'speedtest', 'speedtest'), home: path.join(dir, 'speedtest') });
+  opts = Object.assign({ isRoot: function () { return true; } }, opts);
   return { runner: runner, installer: new inst.Installer(runner, opts), target: runner.config.binary };
 }
 
@@ -60,6 +61,7 @@ test('downloads, verifies, extracts, installs executable, follows redirect, repo
   var done = events[events.length - 1];
   assert.strictEqual(done.ok, true, JSON.stringify(done.error));
   assert.match(done.version, /^Speedtest by Ookla 1\.2\.0/);
+  assert.strictEqual(done.termsAccepted, false);
   assert.ok(events.some(function (e) { return e.event === 'download' && e.total === ARCHIVE.buf.length; }));
   assert.ok(events.some(function (e) { return e.event === 'verifying'; }));
   var st = fs.statSync(s.target);
@@ -71,6 +73,21 @@ test('downloads, verifies, extracts, installs executable, follows redirect, repo
   process.env.MOCK_SCALE = '0.1';
   var exit = await new Promise(function (resolve) { s.runner.start({}, function (e) { if (e.event === 'exit') resolve(e); }); });
   assert.strictEqual(exit.code, 0);
+});
+
+test('refuses to download unless the service is elevated', function () {
+  var s = setup({ url: 'http://127.0.0.1:1/x.tgz', sha256: ARCHIVE.sha256, isRoot: function () { return false; } });
+  assert.throws(function () { s.installer.install(function () {}); }, function (e) { return e.code === 'NOT_ELEVATED' && /elevate-service/.test(e.hint); });
+  assert.strictEqual(s.installer.isActive(), false);
+  assert.ok(!fs.existsSync(path.dirname(s.target)), 'nothing created');
+});
+
+test('install reports whether Ookla terms are already accepted', function () {
+  var d = tmp();
+  assert.strictEqual(inst.termsAccepted(d), false);
+  fs.mkdirSync(path.join(d, '.config', 'ookla'), { recursive: true });
+  fs.writeFileSync(path.join(d, '.config', 'ookla', 'speedtest-cli.json'), '{"Settings":{"LicenseAccepted":"604ec27f"}}');
+  assert.strictEqual(inst.termsAccepted(d), true);
 });
 
 test('checksum mismatch installs nothing', async function (t) {
@@ -137,7 +154,7 @@ test('official armel archive: pinned hash matches and the ARM binary is extracte
   var runner = new Runner({ binary: path.join(dir, 'speedtest'), home: dir, arch: 'arm' });
   var verified = false;
   // On x86 the ARM binary cannot run; check its header instead of --version.
-  var installer = new inst.Installer(runner, { arch: 'arm', url: url, verify: function (file, cb) {
+  var installer = new inst.Installer(runner, { arch: 'arm', url: url, isRoot: function () { return true; }, verify: function (file, cb) {
     var head = fs.readFileSync(file).slice(0, 64);
     verified = require('../service/lib/runner').checkExecutableFormat(head, 'arm') === null;
     cb(verified ? null : { code: 'X', message: 'not ARM' }, 'ARM binary');

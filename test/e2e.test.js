@@ -138,7 +138,7 @@ test('remote-driven UI against the real service and the mock CLI', { skip: !play
   assert.deepStrictEqual(pageErrors, []);
 });
 
-test('missing CLI: download it from the app, then decline and accept the terms', { skip: !playwright && 'playwright not installed', timeout: 120000 }, async function (t) {
+test('missing CLI: elevate automatically, download, terms open by themselves, decline then accept', { skip: !playwright && 'playwright not installed', timeout: 120000 }, async function (t) {
   process.env.MOCK_SCALE = '0.3';
   process.env.MOCK_MODE = 'license'; // licence required until accepted
   var archive = makeMockArchive();
@@ -152,7 +152,7 @@ test('missing CLI: download it from the app, then decline and accept the terms',
   await new Promise(function (r) { files.listen(0, '127.0.0.1', r); });
   var dir = fs.mkdtempSync(path.join(os.tmpdir(), 'st-e2e-dl-'));
   var target = path.join(dir, 'speedtest', 'speedtest');
-  var server = createDevServer({ binary: target, home: path.dirname(target),
+  var server = createDevServer({ binary: target, home: path.dirname(target), elevated: false,
     installer: { url: 'http://127.0.0.1:' + files.address().port + '/ookla.tgz', sha256: archive.sha256 } });
   await new Promise(function (r) { server.listen(0, '127.0.0.1', r); });
   var browser = await playwright.chromium.launch();
@@ -170,30 +170,31 @@ test('missing CLI: download it from the app, then decline and accept the terms',
   await page.waitForFunction(function () { return document.activeElement.id === 'downloadBtn'; });
   await page.screenshot({ path: path.join(OUT, 'cli-missing.png') });
 
-  // 2. OK -> download with progress -> installed and verified
+  // 2. OK -> not elevated -> elevated through Homebrew Channel -> download -> installed
   await page.keyboard.press('Enter');
+  await page.waitForFunction(function () { return /Service elevated/.test(document.getElementById('console').innerText); }, null, { timeout: 10000 });
   await page.waitForFunction(function () { return /KB \/ /.test(document.getElementById('liveValue').textContent); }, null, { timeout: 10000 });
   await page.waitForFunction(function () { return /Installed: Speedtest by Ookla/.test(document.getElementById('console').innerText); }, null, { timeout: 15000 });
-  assert.strictEqual(hits, 1);
+  assert.strictEqual(hits, 1, 'downloaded once, only after elevation');
   assert.strictEqual(fs.statSync(target).mode & 511, 493);
-  assert.strictEqual(await focusedId(), 'startBtn');
-  await page.screenshot({ path: path.join(OUT, 'cli-installed.png') });
 
-  // 3. Start -> licence required -> Review terms (focus on Decline) -> decline
-  await page.keyboard.press('Enter');
-  await page.waitForSelector('#termsBtn:not([hidden])', { timeout: 15000 });
-  await page.waitForFunction(function () { return document.activeElement.id === 'termsBtn'; });
-  await page.keyboard.press('Enter');
-  await page.waitForSelector('#terms:not([hidden])');
+  // 3. Terms dialog opens by itself (Decline focused) -> decline
+  await page.waitForSelector('#terms:not([hidden])', { timeout: 5000 });
   assert.strictEqual(await focusedId(), 'declineBtn', 'Decline is the default');
+  await page.screenshot({ path: path.join(OUT, 'cli-installed.png') });
   await page.screenshot({ path: path.join(OUT, 'terms.png') });
   await page.keyboard.press('Enter');
   await page.waitForSelector('#terms', { state: 'hidden' });
   assert.ok(!fs.existsSync(path.join(path.dirname(target), '.config', 'ookla', 'speedtest-cli.json')), 'nothing accepted after Decline');
 
-  // 4. Review again, move to "I accept", OK -> test runs with the accept flags
+  // 4. Start -> CLI says licence required -> Review terms -> "I accept" -> test runs with the flags
+  await page.waitForFunction(function () { return document.activeElement.id === 'startBtn'; });
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('#termsBtn:not([hidden])', { timeout: 15000 });
+  await page.waitForFunction(function () { return document.activeElement.id === 'termsBtn'; });
   await page.keyboard.press('Enter');
   await page.waitForSelector('#terms:not([hidden])');
+  assert.strictEqual(await focusedId(), 'declineBtn');
   await page.keyboard.press('ArrowLeft');
   assert.strictEqual(await focusedId(), 'acceptBtn');
   await page.keyboard.press('Enter');

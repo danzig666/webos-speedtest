@@ -26,6 +26,9 @@ function createDevServer(opts) {
     helperDir: path.join(ROOT, 'service', 'bin')
   }, opts.installer);
   var service = created.service;
+  // Simulated Homebrew Channel elevation: the installer only works once elevated.
+  var elevated = opts.elevated !== false;
+  created.installer.config.isRoot = function () { return elevated; };
   var SERVICE_URI = 'luna://' + service.name + '/';
 var TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.png': 'image/png', '.json': 'application/json', '.svg': 'image/svg+xml' };
 
@@ -51,6 +54,15 @@ function luna(req, res, q) {
   var ended = false;
   function send(obj) { if (!ended) res.write('data: ' + JSON.stringify(obj) + '\n\n'); }
   function end() { if (ended) return; ended = true; res.write('event: end\ndata: {}\n\n'); res.end(); }
+  if (q.uri === 'luna://org.webosbrew.hbchannel.service/elevateService') {
+    elevated = true;
+    send({ returnValue: true });
+    return end();
+  }
+  if (q.uri === 'luna://org.webosbrew.hbchannel.service/exec') {
+    send({ returnValue: true, stdoutString: '', stderrString: '' });
+    return end();
+  }
   if (q.uri.indexOf(SERVICE_URI) !== 0) {
     send({ returnValue: false, errorText: 'Not available in the dev harness: ' + q.uri });
     return end();
