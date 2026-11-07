@@ -37,14 +37,14 @@ app (HTML/CSS/JS)  ──Luna subscription──▶  io.github.danzig666.speedte
      '{"id":"com.ares.defaultName","ipkUrl":"/tmp/io.github.danzig666.speedtest_1.0.0_all.ipk","subscribe":true}'
    ```
 2. Open **Speedtest CLI** from the launcher and press **Start test**.
-3. The first time, the app says the CLI is missing. Press **Download Speedtest CLI** (it already has focus). If the service isn't elevated yet, the app elevates it through Homebrew Channel first, then downloads the official build from `install.speedtest.net` and installs it. The CLI is never included in this repo or the .ipk.
-4. Ookla's terms then open by themselves. Read them and choose **I accept**, which starts the first test, or **Decline**. Decline is selected by default.
+3. The first time, the CLI isn't installed yet, so Start downloads it without asking. If the service isn't elevated yet, the app elevates it through Homebrew Channel first, then downloads the official build from `install.speedtest.net` and installs it. The CLI is never included in this repo or the .ipk.
+4. Ookla's terms then open by themselves. Read them and choose **I accept**, which starts the first test, or **Decline**. Decline is selected by default. If the terms are already stored on the TV (for example after reinstalling the app), the test starts straight after the download.
 
 ## Binary setup
 
 ### In the app (default)
 
-**Download Speedtest CLI** asks the service to:
+When Start finds no CLI, the app downloads it automatically, at most once per press of Start. If the installed file is unusable (wrong CPU type, damaged), the app shows a **Download Speedtest CLI** button instead of replacing it silently. Either way, the service:
 
 1. download the official 1.2.0 archive for the TV's CPU over HTTPS. 32-bit ARM, which the C3 uses, gets `ookla-speedtest-1.2.0-linux-armel.tgz`; ARM64 gets the `aarch64` build;
 2. reject it unless its SHA-256 matches the hash pinned in `service/lib/installer.js` (armel: `629a455a…66bf`);

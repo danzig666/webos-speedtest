@@ -163,15 +163,12 @@ test('missing CLI: elevate automatically, download, terms open by themselves, de
   await page.goto('http://127.0.0.1:' + server.address().port + '/');
   var focusedId = function () { return page.evaluate(function () { return document.activeElement.id; }); };
 
-  // 1. Start without the CLI -> clear error + Download button gets focus
+  // 1-2. Start without the CLI -> downloads it without asking: not elevated ->
+  //      elevated through Homebrew Channel -> download -> installed
   await page.keyboard.press('Enter');
-  await page.waitForSelector('#downloadBtn:not([hidden])');
-  assert.match(await page.locator('#errorTitle').innerText(), /not found at .*speedtest\/speedtest/);
-  await page.waitForFunction(function () { return document.activeElement.id === 'downloadBtn'; });
-  await page.screenshot({ path: path.join(OUT, 'cli-missing.png') });
-
-  // 2. OK -> not elevated -> elevated through Homebrew Channel -> download -> installed
-  await page.keyboard.press('Enter');
+  await page.waitForFunction(function () { return /not installed yet\. Downloading it now/.test(document.getElementById('console').innerText); }, null, { timeout: 10000 });
+  assert.strictEqual(await page.locator('#error').isVisible(), false, 'no error shown, no question asked');
+  assert.strictEqual(await page.locator('#downloadBtn').isVisible(), false);
   await page.waitForFunction(function () { return /Service elevated/.test(document.getElementById('console').innerText); }, null, { timeout: 10000 });
   await page.waitForFunction(function () { return /KB \/ /.test(document.getElementById('liveValue').textContent); }, null, { timeout: 10000 });
   await page.waitForFunction(function () { return /Installed: Speedtest by Ookla/.test(document.getElementById('console').innerText); }, null, { timeout: 15000 });
@@ -206,5 +203,14 @@ test('missing CLI: elevate automatically, download, terms open by themselves, de
   await page.keyboard.press('Enter'); // "Run again"
   await page.waitForSelector('#results:not([hidden])', { timeout: 30000 });
   assert.doesNotMatch(await page.locator('#console').innerText(), /--accept-license/);
+
+  // 6. CLI removed, terms already stored: Start downloads it and runs the test, no stops
+  fs.unlinkSync(target);
+  await page.keyboard.press('Enter'); // "Run again"
+  await page.waitForSelector('#results:not([hidden])', { timeout: 30000 });
+  assert.strictEqual(hits, 2, 'downloaded again');
+  var txt6 = await page.locator('#console').innerText();
+  assert.match(txt6, /Downloading it now[\s\S]*Installed: [\s\S]*Result URL:/);
+  assert.strictEqual(await page.locator('#terms').isVisible(), false);
   assert.deepStrictEqual(pageErrors, []);
 });

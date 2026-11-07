@@ -32,6 +32,8 @@
   var samples = { download: [], upload: [] };
   var phaseStart = {};
   var lastSummary = null;
+  var startAfterInstall = false; // Start found no CLI: download it, then carry on
+  var autoInstallTried = false;  // at most one automatic download per Start press
   var transport = 'pipe';
   try { transport = localStorage.getItem('transport') === 'pty' ? 'pty' : 'pipe'; } catch (e) { /* storage unavailable */ }
 
@@ -129,14 +131,17 @@
 
   /* ---------------- test lifecycle ---------------- */
 
-  function startTest(acceptTerms) {
+  function startTest(acceptTerms, afterAutoInstall) {
     if (state === 'running' || state === 'stopping') return;
     acceptTerms = acceptTerms === true;
+    if (afterAutoInstall !== true) autoInstallTried = false;
     closeTerms(true);
     closeResults(true);
     clearError();
-    screen.reset();
-    view.clear();
+    if (afterAutoInstall !== true) { // keep the download log above an automatic first test
+      screen.reset();
+      view.clear();
+    }
     parsers.out.reset();
     parsers.err.reset();
     follow = true;
@@ -201,7 +206,14 @@
     if (screen.col > 0) parsers.out.feed('\r\n');
     writeLocal('[speedtest ' + how + ' after ' + secs + ' s]\r\n');
     ui.live.hidden = true;
-    if (r.error) {
+    if (r.error && r.error.code === 'BINARY_MISSING' && !autoInstallTried && window.Luna.available()) {
+      // First run: fetch the official CLI without asking, then continue.
+      autoInstallTried = true;
+      startAfterInstall = true;
+      finish('idle');
+      writeLocal('Speedtest CLI is not installed yet. Downloading it now…\r\n');
+      downloadCli(false);
+    } else if (r.error) {
       finish(r.reason === 'cancelled' ? 'cancelled' : 'failed');
       showError(r.error);
     } else if (r.reason === 'cancelled' || r.reason === 'client-gone') {
@@ -244,12 +256,13 @@
           finish('idle');
           setState('running', 'Elevating…');
           elevate(function (ok) {
-            if (!ok) { setState('failed'); return; }
+            if (!ok) { startAfterInstall = false; setState('failed'); return; }
             setState('idle');
             setTimeout(function () { downloadCli(true); }, 1500); // let Luna start the elevated instance
           });
           return;
         }
+        startAfterInstall = false;
         finish('failed');
         showError({ code: r.errorCode, message: r.errorText || 'Download failed', hint: r.hint });
         return;
@@ -269,7 +282,12 @@
         if (r.ok) {
           ui.version.textContent = r.version;
           finish('idle');
-          if (r.termsAccepted) {
+          var continueTest = startAfterInstall;
+          startAfterInstall = false;
+          if (r.termsAccepted && continueTest) {
+            writeLocal('Installed: ' + r.version + '\r\n');
+            startTest(false, true);
+          } else if (r.termsAccepted) {
             writeLocal('Installed: ' + r.version + '\r\nPress Start test.\r\n');
             focusEl(ui.start);
           } else {
@@ -277,6 +295,7 @@
             openTerms();
           }
         } else {
+          startAfterInstall = false;
           writeLocal('Download failed.\r\n');
           finish(r.error && r.error.code === 'CANCELLED' ? 'cancelled' : 'failed');
           if (!(r.error && r.error.code === 'CANCELLED')) showError(r.error);

@@ -1,6 +1,6 @@
 {
   "name": "webos-speedtest",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "LG webOS Homebrew app that runs the official Ookla Speedtest CLI and shows its live terminal output",
   "private": true,
   "license": "MIT",
