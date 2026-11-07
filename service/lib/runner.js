@@ -486,6 +486,11 @@ Run.prototype._classifyFailure = function (info) {
     return makeError('BINARY_EXEC_FAILED', lastMeaningfulLine(this.stderrTail), INSTALL_HINT);
   }
   var line = lastMeaningfulLine(this.stderrTail) || lastMeaningfulLine(this.tail);
+  // Messages seen from the real 1.2.0 CLI when it cannot reach Ookla.
+  if (/NoServers|Failed to find a working test server|Cannot open socket|Connection refused|Could not retrieve or read configuration|Cannot retrieve configuration|resolve host|Network is unreachable/i.test(plain)) {
+    return makeError('NETWORK_ERROR', 'The CLI could not reach Ookla\'s servers' + (line ? ': ' + line : '.'),
+      'Check the TV\'s internet connection, DNS, firewall/VPN or Pi-hole style blocking of *.speedtest.net / ookla.com, then try again.');
+  }
   var how = info.signal ? 'was killed by ' + info.signal : 'exited with code ' + info.code;
   return makeError('TEST_FAILED', 'speedtest ' + how + (line ? ': ' + line : '.'), 'See the console output above for details.');
 };

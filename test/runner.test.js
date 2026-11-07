@@ -151,6 +151,16 @@ test('CLI failure is reported with its stderr message', async function () {
   assert.match(exit.error.message, /exited with code 2: \[error\] Download test failed/);
 });
 
+test('unreachable test servers are reported as a network error', async function () {
+  var restore = setMock({ MOCK_MODE: 'noservers', MOCK_SCALE: '0.2' });
+  var events = await runCollect(makeRunner(), {});
+  restore();
+  var exit = events[events.length - 1];
+  assert.strictEqual(exit.code, 2);
+  assert.strictEqual(exit.error.code, 'NETWORK_ERROR');
+  assert.match(exit.error.message, /Failed to find a working test server/);
+});
+
 test('licence prompt is detected and explained, never answered', async function () {
   var restore = setMock({ MOCK_MODE: 'license', MOCK_SCALE: '0.2' });
   var runner = makeRunner({ home: '/media/developer/speedtest' });

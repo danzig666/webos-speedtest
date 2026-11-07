@@ -164,13 +164,14 @@ tail -f /var/log/messages | grep -i speedtest
 | *No output for 60 s* / *took longer than 240 s* | Check the network. Try the other output mode. |
 | *Could not allocate a pseudo-terminal* | Elevate the service, or switch output back to `pipe`. |
 | `Unknown method` / service missing | Reinstall the .ipk. Make sure the service shows up in `ls /media/developer/apps/usr/palm/services/`. |
-| `ConfigurationError … Could not retrieve or read configuration` | The CLI could not reach `www.speedtest.net`. Check DNS, network, and proxy settings on the TV. |
+| *could not reach Ookla's servers* (`NoServers`, `Connection refused`, `ConfigurationError`) | The CLI could not reach Ookla's configuration or test servers. Check the TV's internet connection, DNS, any VPN or firewall, and DNS blockers (Pi-hole etc.) for `*.speedtest.net` and `*.ookla.com`. |
 
 ## Verification status
 
 | Check | Where it ran |
 |---|---|
 | Official armel 1.2.0 binary: format (static ARM EABI5), `--version`, licence-prompt behaviour on pipe and on TTY | **QEMU user-mode on x86-64** (not the TV) |
+| Official binary after licence acceptance, through the service in pipe and PTY modes: the header arrived 0.9 s into the run and exit came at 2.0 s (output streams before exit); unreachable servers reported as `NETWORK_ERROR` | QEMU, in a sandbox whose network blocks Ookla's test servers, so no throughput was measured |
 | Format strings used by the parser (`%12s: %13s (data used: …)`, ` Packet Loss: …`, spinner `-\|/`, `[=…]` bar) | Extracted from the official binary |
 | Streaming before exit, Cancel kills the process, second run, timeouts, error messages, UTF-8 and ANSI split handling, one run at a time | **Mock CLI**, desktop Node 22, pipe and PTY modes |
 | ptyrun armv7 build runs | QEMU (`ptyrun -- /bin/echo`) |
@@ -188,7 +189,7 @@ Still to verify on the TV, in this order:
 6. Close the app during a test. Check with `ps` again.
 7. Try PTY mode after elevating.
 
-A complete network test was never run in development, because accepting Ookla's licence is your decision. So the progress-line layout is inferred from the binary's format strings, and the parser accepts some variation. If the live progress strip or charts stay empty on the TV, the console output is still complete. Please open an issue with a copy of the progress line.
+A complete network test was never run in development, because the build sandbox's network refuses connections to Ookla's test servers. So the progress-line layout is inferred from the binary's format strings, and the parser accepts some variation. If the live progress strip or charts stay empty on the TV, the console output is still complete. Please open an issue with a copy of the progress line.
 
 ## Security notes
 

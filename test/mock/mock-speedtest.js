@@ -55,7 +55,13 @@ function phase(label, finalSpeed, used, lat) {
   out(pad('', 12) + '  ' + pad(lat.toFixed(2) + ' ms', 13) + '   (jitter: 1.20ms, low: ' + (lat - 3).toFixed(2) + 'ms, high: ' + (lat + 9).toFixed(2) + 'ms)\n');
 }
 
-if (mode === 'license') {
+if (mode === 'noservers') {
+  // Exactly what the real 1.2.0 CLI printed when test servers were unreachable.
+  out('\n   Speedtest by Ookla\n\n');
+  for (var n = 0; n < 4; n++) { wait(100); err('[error] Error: [111] Connection refused\n'); }
+  err('[error] Server Selection - Failed to find a working test server. (NoServers)\n');
+  steps.push(function () { process.exit(2); });
+} else if (mode === 'license') {
   err('==============================================================================\n\nYou may only use this Speedtest software and information generated\nfrom it for personal, non-commercial use, through a command line\ninterface on a personal computer. ...\n\n');
   err('To accept the message please run speedtest interactively or use the following: \n\n    speedtest --accept-license\n\n');
   if (process.stdout.isTTY) {
