@@ -27,6 +27,26 @@ app (HTML/CSS/JS)  ──Luna subscription──▶  io.github.danzig666.speedte
 
 ## Install
 
+### From Homebrew Channel (recommended)
+
+Add this project's repository to Homebrew Channel once, then install and update the app like any other homebrew app:
+
+1. Open **Homebrew Channel** → **Settings** → **Add repository**, and enter:
+   ```
+   https://raw.githubusercontent.com/danzig666/webos-speedtest/main/homebrew/apps.json
+   ```
+   Or add it over SSH:
+   ```sh
+   luna-send-pub -n 1 'luna://com.webos.applicationManager/launch' \
+     '{"id":"org.webosbrew.hbchannel","params":{"launchMode":"addRepository","url":"https://raw.githubusercontent.com/danzig666/webos-speedtest/main/homebrew/apps.json"}}'
+   ```
+2. **Speedtest CLI** now appears in Homebrew Channel's app list. Select it and choose **Install**. Homebrew Channel checks the SHA-256 listed in the repository before installing.
+3. Open the app and press **Start test**. The steps below explain what happens on first use.
+
+Each GitHub release regenerates [`homebrew/apps.json`](homebrew/apps.json) with the new version, `.ipk` URL and SHA-256, so Homebrew Channel offers updates automatically.
+
+### Manually
+
 1. **Install the app.** Download `io.github.danzig666.speedtest_<version>_all.ipk` from [Releases](../../releases) or from the CI artifacts. Then use one of these:
    ```sh
    # from a PC with webOS CLI tools (ares-setup-device already configured)

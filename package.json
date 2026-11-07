@@ -5,7 +5,7 @@
   "private": true,
   "license": "MIT",
   "scripts": {
-    "test": "node --test test/frontend.test.js test/runner.test.js test/service.test.js test/installer.test.js test/e2e.test.js",
+    "test": "node --test test/frontend.test.js test/runner.test.js test/service.test.js test/installer.test.js test/homebrew-repo.test.js test/e2e.test.js",
     "build:pty": "sh scripts/build-pty.sh",
     "package": "node scripts/package-ipk.js",
     "dev": "node tools/dev-server.js"
