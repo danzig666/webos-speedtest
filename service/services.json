@@ -7,7 +7,8 @@
       "description": "Ookla Speedtest CLI runner",
       "commands": [
         { "name": "start", "description": "Run the fixed speedtest command; subscribe to receive live output", "public": true },
-        { "name": "cancel", "description": "Stop the running speedtest process", "public": true }
+        { "name": "install", "description": "Download the official Speedtest CLI for this CPU (pinned SHA-256); subscribe for progress", "public": true },
+        { "name": "cancel", "description": "Stop the running speedtest process or download", "public": true }
       ]
     }
   ]

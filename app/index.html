@@ -10,7 +10,7 @@
   <main id="main" class="screen">
     <header class="top">
       <div class="brand">
-        <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><path d="M8 44a24 24 0 1 1 48 0" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><path d="M32 44 46 22" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><circle cx="32" cy="44" r="5" fill="currentColor"/></svg>
+        <img class="logo" src="logo.png" alt="">
         <div>
           <h1>Speedtest CLI</h1>
           <div id="version" class="sub">Ookla Speedtest CLI on your TV</div>
@@ -35,12 +35,29 @@
         <div id="errorTitle" class="error-title"></div>
         <pre id="errorHint" class="error-hint"></pre>
       </div>
+      <div id="terms" class="terms" role="dialog" aria-labelledby="termsTitle" hidden>
+        <div id="termsTitle" class="terms-title">Accept Ookla's terms to run the Speedtest CLI</div>
+        <p>Ookla allows this software for personal, non-commercial use only. Using it means agreeing to Ookla's
+          End User License Agreement, Terms of Use and Privacy Policy. Test data, including your IP address,
+          is sent to Ookla. The CLI's full notice is in the console behind this box: choose Decline to read it, then Review terms again.</p>
+        <ul class="terms-links">
+          <li>speedtest.net/about/eula</li><li>speedtest.net/about/terms</li><li>speedtest.net/about/privacy</li>
+        </ul>
+        <p class="terms-note"><b>I accept</b> runs the test once with <code>--accept-license --accept-gdpr</code>.
+          The CLI saves your acceptance on the TV, so you won't be asked again.</p>
+        <div class="terms-actions">
+          <button id="acceptBtn" class="btn primary focusable">I accept</button>
+          <button id="declineBtn" class="btn focusable">Decline</button>
+        </div>
+      </div>
     </section>
 
     <footer class="actions">
       <button id="startBtn" class="btn primary focusable">Start test</button>
       <button id="cancelBtn" class="btn focusable" disabled>Cancel</button>
       <button id="resultsBtn" class="btn focusable" hidden>Results</button>
+      <button id="downloadBtn" class="btn primary focusable" hidden>Download Speedtest CLI</button>
+      <button id="termsBtn" class="btn primary focusable" hidden>Review terms</button>
       <button id="elevateBtn" class="btn focusable" hidden>Elevate service</button>
       <span class="spacer"></span>
       <button id="modeBtn" class="btn ghost focusable" title="How the CLI output is captured">Output: pipe</button>

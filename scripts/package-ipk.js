@@ -57,7 +57,7 @@ fs.rmSync(tmp, { recursive: true, force: true });
 
 var appDir = 'usr/palm/applications/' + appinfo.id + '/';
 var svcDir = 'usr/palm/services/' + svcPkg.name + '/';
-var required = [appDir + 'appinfo.json', appDir + 'index.html', appDir + 'js/app.js', svcDir + 'service.js', svcDir + 'services.json', svcDir + 'lib/runner.js'];
+var required = [appDir + 'appinfo.json', appDir + 'index.html', appDir + 'js/app.js', svcDir + 'service.js', svcDir + 'services.json', svcDir + 'lib/runner.js', svcDir + 'lib/installer.js', appDir + 'logo.png'];
 required.forEach(function (f) { if (listing.indexOf(f) === -1) fail('missing ' + f + ' in ipk'); });
 HELPERS.forEach(function (h) {
   var line = listing.split('\n').filter(function (l) { return l.indexOf(svcDir + 'bin/' + h) !== -1; })[0];

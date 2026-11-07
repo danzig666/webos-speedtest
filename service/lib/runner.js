@@ -23,6 +23,7 @@ var StringDecoder = require('string_decoder').StringDecoder;
 
 var DEFAULT_BINARY = '/media/developer/speedtest/speedtest';
 var FIXED_ARGS = ['--format=human-readable', '--progress=yes'];
+var ACCEPT_ARGS = ['--accept-license', '--accept-gdpr'];
 var PTY_COLS = 100;
 var PTY_ROWS = 30;
 
@@ -77,11 +78,10 @@ function makeError(code, message, hint, extra) {
   return e;
 }
 
-var INSTALL_HINT = 'Install the official Linux "armel" build over SSH (see README, "Binary setup").';
+var INSTALL_HINT = 'Press "Download Speedtest CLI" to install the official build, or install it over SSH (README, "Binary setup").';
 var ELEVATE_HINT = 'If the file is there, the jailed service may not be allowed to see it: use "Elevate service" or run elevate-service over SSH (README, "Elevation").';
-var LICENSE_HINT = 'Accept Ookla\'s licence and privacy terms once over SSH:\n' +
-  '  HOME=<home> <binary>\n' +
-  'Read the terms and type YES at each prompt, then press Start again.';
+var LICENSE_HINT = 'Read the terms shown above, then press "Review terms" to accept them in the app,\n' +
+  'or accept over SSH:  HOME=<home> <binary>  (type YES at each prompt).';
 
 /* --------------------------------------------------------------------- */
 
@@ -110,8 +110,8 @@ Runner.prototype.status = function () {
  * onEvent; the final event always has event === 'exit'.
  */
 Runner.prototype.start = function (options, onEvent) {
-  if (this.active) {
-    throw makeError('BUSY', 'A speed test is already running.', 'Wait for it to finish or press Cancel.');
+  if (this.active || this.blockedBy) {
+    throw makeError('BUSY', this.active ? 'A speed test is already running.' : 'The Speedtest CLI is being downloaded.', 'Wait for it to finish or press Cancel.');
   }
   var run = new Run(this, this._nextId++, options || {}, onEvent);
   this.active = run;
@@ -140,6 +140,8 @@ function Run(runner, id, options, onEvent) {
   this.config = runner.config;
   this.id = id;
   this.mode = options.pty ? 'pty' : 'pipe';
+  // Set only after the user pressed "I accept" on the terms shown in the app.
+  this.acceptTerms = options.acceptTerms === true;
   this.onEvent = typeof onEvent === 'function' ? onEvent : function () {};
   this.child = null;
   this.state = 'preflight';
@@ -181,12 +183,9 @@ Run.prototype._begin = function () {
   });
 };
 
-Run.prototype._preflight = function (cb) {
-  var cfg = this.config;
-  var mode = this.mode;
+/** Shared binary check: exists, readable, right CPU, executable, --version works. */
+function preflightBinary(cfg, cb) {
   var bin = cfg.binary;
-  var hintVars = function (s) { return s.replace('<home>', cfg.home).replace('<binary>', bin); };
-
   fs.stat(bin, function (err, st) {
     if (err) {
       if (err.code === 'ENOENT' || err.code === 'ENOTDIR') {
@@ -205,24 +204,31 @@ Run.prototype._preflight = function (cb) {
         if (err3) {
           return cb(makeError('BINARY_NOT_EXECUTABLE', bin + ' is not executable.', 'Run over SSH:  chmod 755 ' + bin));
         }
-        var helper = null;
-        if (mode === 'pty') {
-          var name = PTY_HELPERS[cfg.arch];
-          helper = name ? path.join(cfg.helperDir, name) : null;
-          if (!helper || !fs.existsSync(helper)) {
-            return cb(makeError('PTY_UNAVAILABLE', 'No pseudo-terminal helper for CPU "' + cfg.arch + '".', 'Switch the transport back to "pipe".'));
-          }
-          try { fs.chmodSync(helper, 493); } catch (e) { /* read-only install: rely on packaged mode */ }
-        }
-        runVersion(cfg, function (err4, version) {
-          if (err4) {
-            err4.hint = err4.hint ? hintVars(err4.hint) : err4.hint;
-            return cb(err4);
-          }
-          cb(null, { version: version, helper: helper });
-        });
+        runVersion(cfg, cb);
       });
     });
+  });
+}
+
+Runner.prototype.verifyBinary = function (cb) {
+  preflightBinary(this.config, cb);
+};
+
+Run.prototype._preflight = function (cb) {
+  var cfg = this.config;
+  var mode = this.mode;
+  preflightBinary(cfg, function (err, version) {
+    if (err) return cb(err);
+    var helper = null;
+    if (mode === 'pty') {
+      var name = PTY_HELPERS[cfg.arch];
+      helper = name ? path.join(cfg.helperDir, name) : null;
+      if (!helper || !fs.existsSync(helper)) {
+        return cb(makeError('PTY_UNAVAILABLE', 'No pseudo-terminal helper for CPU "' + cfg.arch + '".', 'Switch the transport back to "pipe".'));
+      }
+      try { fs.chmodSync(helper, 493); } catch (e) { /* read-only install: rely on packaged mode */ }
+    }
+    cb(null, { version: version, helper: helper });
   });
 };
 
@@ -320,6 +326,7 @@ Run.prototype._spawn = function () {
   var cfg = this.config;
   var file = cfg.binary;
   var args = cfg.args.slice();
+  if (this.acceptTerms) args = args.concat(ACCEPT_ARGS);
   if (this.mode === 'pty') {
     args = ['--cols', String(PTY_COLS), '--rows', String(PTY_ROWS), '--', file].concat(args);
     file = path.join(cfg.helperDir, PTY_HELPERS[cfg.arch]);
@@ -357,7 +364,7 @@ Run.prototype._spawn = function () {
 
   this._armTimers();
   if (child.pid) {
-    this._emit({ event: 'started', pid: child.pid, mode: this.mode, args: cfg.args });
+    this._emit({ event: 'started', pid: child.pid, mode: this.mode, args: this.acceptTerms ? cfg.args.concat(ACCEPT_ARGS) : cfg.args });
   }
 };
 
@@ -515,5 +522,6 @@ module.exports = {
   stripAnsi: stripAnsi,
   checkExecutableFormat: checkExecutableFormat,
   FIXED_ARGS: FIXED_ARGS,
+  ACCEPT_ARGS: ACCEPT_ARGS,
   DEFAULT_BINARY: DEFAULT_BINARY
 };

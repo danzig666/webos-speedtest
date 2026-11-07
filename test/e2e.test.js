@@ -12,6 +12,9 @@ var fs = require('fs');
 var os = require('os');
 var path = require('path');
 
+var http = require('http');
+var createDevServer = require('../tools/dev-server.js');
+var makeMockArchive = require('./support/mock-archive');
 var playwright = null;
 try { playwright = require('playwright'); } catch (e) { /* optional */ }
 
@@ -26,8 +29,8 @@ test('remote-driven UI against the real service and the mock CLI', { skip: !play
   process.env.MOCK_SCALE = '0.6';
   process.env.MOCK_MODE = 'success';
   process.env.MOCK_ARGS_FILE = ARGS_FILE;
-  var server = require('../tools/dev-server.js');
-  await new Promise(function (r) { if (server.listening) r(); else server.once('listening', r); });
+  var server = createDevServer();
+  await new Promise(function (r) { server.listen(0, '127.0.0.1', r); });
   var base = 'http://127.0.0.1:' + server.address().port;
   var status = async function () { return (await fetch(base + '/__dev/status')).json(); };
 
@@ -132,5 +135,75 @@ test('remote-driven UI against the real service and the mock CLI', { skip: !play
   while (((await status()).active || alive(pid4)) && Date.now() - t0 < 8000) await new Promise(function (r) { setTimeout(r, 50); });
   assert.strictEqual((await status()).active, false, 'service released the run');
   assert.ok(!alive(pid4), 'closing the app stopped the process');
+  assert.deepStrictEqual(pageErrors, []);
+});
+
+test('missing CLI: download it from the app, then decline and accept the terms', { skip: !playwright && 'playwright not installed', timeout: 120000 }, async function (t) {
+  process.env.MOCK_SCALE = '0.3';
+  process.env.MOCK_MODE = 'license'; // licence required until accepted
+  var archive = makeMockArchive();
+  var hits = 0;
+  var files = http.createServer(function (req, res) {
+    hits++;
+    res.writeHead(200, { 'Content-Length': archive.buf.length });
+    res.write(archive.buf.slice(0, 2000));
+    setTimeout(function () { res.end(archive.buf.slice(2000)); }, 400);
+  });
+  await new Promise(function (r) { files.listen(0, '127.0.0.1', r); });
+  var dir = fs.mkdtempSync(path.join(os.tmpdir(), 'st-e2e-dl-'));
+  var target = path.join(dir, 'speedtest', 'speedtest');
+  var server = createDevServer({ binary: target, home: path.dirname(target),
+    installer: { url: 'http://127.0.0.1:' + files.address().port + '/ookla.tgz', sha256: archive.sha256 } });
+  await new Promise(function (r) { server.listen(0, '127.0.0.1', r); });
+  var browser = await playwright.chromium.launch();
+  t.after(async function () { await browser.close(); server.close(); files.close(); });
+  var page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+  var pageErrors = [];
+  page.on('pageerror', function (e) { pageErrors.push(e.message); });
+  await page.goto('http://127.0.0.1:' + server.address().port + '/');
+  var focusedId = function () { return page.evaluate(function () { return document.activeElement.id; }); };
+
+  // 1. Start without the CLI -> clear error + Download button gets focus
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('#downloadBtn:not([hidden])');
+  assert.match(await page.locator('#errorTitle').innerText(), /not found at .*speedtest\/speedtest/);
+  await page.waitForFunction(function () { return document.activeElement.id === 'downloadBtn'; });
+  await page.screenshot({ path: path.join(OUT, 'cli-missing.png') });
+
+  // 2. OK -> download with progress -> installed and verified
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(function () { return /KB \/ /.test(document.getElementById('liveValue').textContent); }, null, { timeout: 10000 });
+  await page.waitForFunction(function () { return /Installed: Speedtest by Ookla/.test(document.getElementById('console').innerText); }, null, { timeout: 15000 });
+  assert.strictEqual(hits, 1);
+  assert.strictEqual(fs.statSync(target).mode & 511, 493);
+  assert.strictEqual(await focusedId(), 'startBtn');
+  await page.screenshot({ path: path.join(OUT, 'cli-installed.png') });
+
+  // 3. Start -> licence required -> Review terms (focus on Decline) -> decline
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('#termsBtn:not([hidden])', { timeout: 15000 });
+  await page.waitForFunction(function () { return document.activeElement.id === 'termsBtn'; });
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('#terms:not([hidden])');
+  assert.strictEqual(await focusedId(), 'declineBtn', 'Decline is the default');
+  await page.screenshot({ path: path.join(OUT, 'terms.png') });
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('#terms', { state: 'hidden' });
+  assert.ok(!fs.existsSync(path.join(path.dirname(target), '.config', 'ookla', 'speedtest-cli.json')), 'nothing accepted after Decline');
+
+  // 4. Review again, move to "I accept", OK -> test runs with the accept flags
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('#terms:not([hidden])');
+  await page.keyboard.press('ArrowLeft');
+  assert.strictEqual(await focusedId(), 'acceptBtn');
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('#results:not([hidden])', { timeout: 30000 });
+  assert.match(await page.locator('#console').innerText(), /--accept-license --accept-gdpr/);
+  assert.ok(fs.existsSync(path.join(path.dirname(target), '.config', 'ookla', 'speedtest-cli.json')));
+
+  // 5. Next run needs no prompt
+  await page.keyboard.press('Enter'); // "Run again"
+  await page.waitForSelector('#results:not([hidden])', { timeout: 30000 });
+  assert.doesNotMatch(await page.locator('#console').innerText(), /--accept-license/);
   assert.deepStrictEqual(pageErrors, []);
 });

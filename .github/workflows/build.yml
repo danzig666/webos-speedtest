@@ -54,6 +54,7 @@ jobs:
         env:
           OOKLA_ARMEL_BIN: ${{ runner.temp }}/ookla/speedtest
           QEMU_ARM: /usr/bin/qemu-arm-static
+          REAL_DOWNLOAD: '1'
         run: npm test
 
       - name: Check tag matches app version

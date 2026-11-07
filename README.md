@@ -19,7 +19,7 @@ app (HTML/CSS/JS)  ──Luna subscription──▶  io.github.danzig666.speedte
                                                 stdout/stderr ──▶ UTF-8 decode ──▶ batched events
 ```
 
-* **Service** (`service/`): a JS service with two methods, `start` (a subscription) and `cancel`. The binary path and argument list are fixed. Callers can only choose how output is captured: `pipe` (default) or `pty`. There is no shell, and only one test runs at a time. Each run has two time limits: 4 minutes in total, and 60 seconds without any output. On a limit or Cancel, the service sends SIGTERM to the process group, then SIGKILL after 3 seconds. If the app closes, Luna drops the subscription and the service kills the process.
+* **Service** (`service/`): a JS service with three methods: `start` (a subscription), `install` (a subscription that downloads the CLI) and `cancel`. The binary path and argument list are fixed. Callers can only choose how output is captured, `pipe` (default) or `pty`, and whether this run accepts Ookla's terms; the app sends that flag only from the terms dialog. There is no shell, and only one test runs at a time. Each run has two time limits: 4 minutes in total, and 60 seconds without any output. On a limit or Cancel, the service sends SIGTERM to the process group, then SIGKILL after 3 seconds. If the app closes, Luna drops the subscription and the service kills the process.
 * **Before each run** the service checks the binary: it must exist, be executable, and be an ELF file for the TV's CPU. It then runs `speedtest --version`. Each failure gets a specific message: missing, not executable, wrong CPU, broken, licence not accepted, CLI failed, stalled, or timed out.
 * **Output** is decoded per stream with `StringDecoder`, so a UTF-8 character split between chunks is rebuilt correctly. Chunks are batched about every 40 ms and sent as `{s:'out'|'err', d:'raw text'}`. Control characters and ANSI sequences are passed through unchanged.
 * **Console** (`app/js/terminal.js`): a small terminal emulator. It handles CR, LF, BS, TAB, cursor movement, erase in line and display, and SGR colours. Each stream (stdout, stderr) has its own parser state, so an escape sequence split across chunks, or interrupted by a stderr chunk, is never corrupted. stderr is shown in red.
@@ -36,10 +36,26 @@ app (HTML/CSS/JS)  ──Luna subscription──▶  io.github.danzig666.speedte
    luna-send-pub -i 'luna://com.webos.appInstallService/dev/install' \
      '{"id":"com.ares.defaultName","ipkUrl":"/tmp/io.github.danzig666.speedtest_1.0.0_all.ipk","subscribe":true}'
    ```
-2. **Install the Ookla CLI** on the TV: see [Binary setup](#binary-setup). The CLI is not included in this repo or the .ipk.
-3. Open **Speedtest CLI** from the launcher and press **Start test**.
+2. Open **Speedtest CLI** from the launcher and press **Start test**.
+3. The first time, the app says the CLI is missing. Press **Download Speedtest CLI** (it already has focus). The app downloads the official build from `install.speedtest.net` and installs it. The CLI is never included in this repo or the .ipk.
+4. Press **Start test** again. Ookla then asks for its licence and privacy terms: press **Review terms**, read them, and choose **I accept** or **Decline**. Decline is selected by default.
 
 ## Binary setup
+
+### In the app (default)
+
+**Download Speedtest CLI** asks the service to:
+
+1. download the official 1.2.0 archive for the TV's CPU over HTTPS. 32-bit ARM, which the C3 uses, gets `ookla-speedtest-1.2.0-linux-armel.tgz`; ARM64 gets the `aarch64` build;
+2. reject it unless its SHA-256 matches the hash pinned in `service/lib/installer.js` (armel: `629a455a…66bf`);
+3. extract only the `speedtest` file, write it with mode 0755, and rename it into place;
+4. check it the same way as before every test: ELF CPU type, then `--version`.
+
+The jailed service may not be allowed to write `/media/developer/speedtest`. If the download ends with *Cannot write …*, press **Elevate service** and try again, or use the manual steps below.
+
+**Licence and privacy terms.** On a fresh install the CLI refuses to test until you accept Ookla's terms. The app shows the CLI's notice and a **Review terms** dialog. **I accept** runs that test once with `--accept-license --accept-gdpr`, and the CLI stores the acceptance in `/media/developer/speedtest/.config/ookla/`. Later tests run without those flags. The app never sends them unless you press **I accept**.
+
+### Manually over SSH
 
 The app runs exactly this file: **`/media/developer/speedtest/speedtest`**, with `HOME=/media/developer/speedtest`. Ookla stores its licence and GDPR acceptance in `$HOME/.config/ookla/speedtest-cli.json`, so that file ends up in the same directory.
 
@@ -66,7 +82,7 @@ Speedtest by Ookla 1.2.0.84 (ea6b6773cf) Linux/arm-linux-musleabi … arm/armv7l
 
 The armel build is a static 32-bit ARM (EABI5) musl binary, so it does not depend on the TV's libc.
 
-**Accept the licence and privacy terms yourself, once.** The app never answers these prompts. It runs the CLI with stdin closed, and if consent is missing it stops and tells you what to do. Run the CLI interactively with the same HOME the app uses:
+**Accept the licence and privacy terms once**, either with the in-app **Review terms** dialog or over SSH. The CLI's own prompts are never answered automatically. It runs the CLI with stdin closed, and if consent is missing it stops and tells you what to do. Run the CLI interactively with the same HOME the app uses:
 
 ```sh
 HOME=/media/developer/speedtest /media/developer/speedtest/speedtest
@@ -125,13 +141,14 @@ npm run package        # -> dist/io.github.danzig666.speedtest_<ver>_all.ipk (ve
 
 ## Tests
 
-`npm test` runs 29 tests:
+`npm test` runs all tests:
 
 * **Mock CLI** (`test/mock/`): delayed progress, `\r` redraws, ESC[K, ANSI sequences split across writes, UTF-8 characters split across writes, stderr lines, and modes for success, failure (exit 2), licence prompt, and stall.
 * **Runner** (`test/runner.test.js`): output arrives while the process is still alive; Cancel kills the real process (checked by PID); a second run starts cleanly; only one run at a time; failures, the licence prompt, the stall timeout, and the overall timeout (with SIGKILL escalation) are each detected; missing, non-executable, and wrong-architecture binaries are rejected. In PTY mode, the CLI sees a TTY, Cancel reaches it, and an endless licence prompt is stopped.
 * **Official binary under QEMU** (when `OOKLA_ARMEL_BIN` and `QEMU_ARM` are set): checks the `--version` preflight; pipe mode shows the licence instructions and exits with code 1; PTY mode re-prompts and is stopped with `LICENSE_REQUIRED`. Nothing is ever accepted.
 * **Service** (`test/service.test.js`, with a fake `webos-service`): only `start` and `cancel` exist; `start` requires a subscription; a second subscriber gets BUSY; the keep-alive is released; dropping the subscription (app closed) kills the process.
-* **UI end-to-end** (`test/e2e.test.js`, Playwright, skipped if Playwright is not installed): driven only with arrows, Enter, and BACK (keyCode 461). Runs Start, Cancel, Start again, results screen, BACK, a failure error, a licence error, and closing the page while a test runs.
+* **Installer** (`test/installer.test.js`, local HTTP server): download, redirect, progress, SHA-256 mismatch, HTTP errors, unreachable host, cancel, archive without `speedtest`, and that tests and downloads exclude each other. With `OOKLA_ARMEL_TGZ=<file>` or `REAL_DOWNLOAD=1` (set in CI), it also checks the pinned hash against the real armel archive and extracts the ARM binary.
+* **UI end-to-end** (`test/e2e.test.js`, Playwright, skipped if Playwright is not installed): driven only with arrows, Enter, and BACK (keyCode 461). Runs Start, Cancel, Start again, results screen, BACK, a failure error, a licence error, and closing the page while a test runs. A second scenario starts with no CLI: Download Speedtest CLI → progress → installed → licence required → Review terms → Decline (nothing stored) → I accept → results → next run without the flags.
 
 ## Troubleshooting
 
@@ -157,10 +174,13 @@ tail -f /var/log/messages | grep -i speedtest
 
 | Message | Fix |
 |---|---|
-| *Speedtest CLI not found* | Install it at the exact path shown under [Binary setup](#binary-setup). If it is already there, [elevate](#elevation-when-needed) the service. |
+| *Speedtest CLI not found* | Press **Download Speedtest CLI**, or install it manually at the path under [Binary setup](#binary-setup). If it is already there, [elevate](#elevation-when-needed) the service. |
+| *Cannot write /media/developer/speedtest/…* | The jailed service may not write there. Press **Elevate service** and download again. |
+| *does not match the expected SHA-256* | The download was corrupted or altered, and nothing was installed. Try again, or install manually. |
+| *Download failed: HTTP …* / *Cannot download from …* | The TV can't reach `install.speedtest.net`. Check the network and DNS, or install manually. |
 | *not executable* | `chmod 755 /media/developer/speedtest/speedtest` |
 | *built for x86-64 / ARM64 …* | You downloaded the wrong build. Use the **linux-armel** .tgz. |
-| *licence / privacy terms have not been accepted* | Run the interactive SSH command above with `HOME=/media/developer/speedtest`. |
+| *licence / privacy terms have not been accepted* | Press **Review terms** → **I accept**, or run the interactive SSH command above with `HOME=/media/developer/speedtest`. |
 | *No output for 60 s* / *took longer than 240 s* | Check the network. Try the other output mode. |
 | *Could not allocate a pseudo-terminal* | Elevate the service, or switch output back to `pipe`. |
 | `Unknown method` / service missing | Reinstall the .ipk. Make sure the service shows up in `ls /media/developer/apps/usr/palm/services/`. |
@@ -176,6 +196,7 @@ tail -f /var/log/messages | grep -i speedtest
 | Streaming before exit, Cancel kills the process, second run, timeouts, error messages, UTF-8 and ANSI split handling, one run at a time | **Mock CLI**, desktop Node 22, pipe and PTY modes |
 | ptyrun armv7 build runs | QEMU (`ptyrun -- /bin/echo`) |
 | Luna service contract, subscription cancel → kill | Fake `webos-service` |
+| In-app download: pinned SHA-256 matches the official armel/aarch64/x86_64 archives; extracting the armel archive yields the official 2,287,444-byte ARM binary | Archives downloaded in the sandbox; CI repeats it against `install.speedtest.net` |
 | UI with remote keys, results screen | Chromium (Playwright) via the dev harness |
 | **Anything on the LG C3 / webOS 10.2.2** | **Not run.** The build environment cannot reach your TV. |
 
@@ -193,7 +214,8 @@ A complete network test was never run in development, because the build sandbox'
 
 ## Security notes
 
-* The service exposes only `start` and `cancel`. It runs a fixed binary with a fixed argument list, passes no user input to the command line, and uses no shell.
+* The service exposes only `start`, `install` and `cancel`. It runs a fixed binary with a fixed argument list, passes no user input to the command line, and uses no shell.
+* `install` downloads only from fixed `https://install.speedtest.net` URLs, refuses redirects to plain http, and installs nothing unless the archive's SHA-256 matches the pinned hash.
 * The child process gets a minimal environment: `HOME`, `PATH`, `LANG`, `TERM`, `COLUMNS`, plus proxy variables if the service has them.
-* The Ookla binary and its terms stay outside this repo and the .ipk. The app never passes `--accept-license` or `--accept-gdpr`.
+* The Ookla binary stays outside this repo and the .ipk. The app adds `--accept-license --accept-gdpr` only for the run started by **I accept** in the terms dialog.
 * Elevation is optional and only needed when the jail prevents running the CLI or using PTY mode.

@@ -16,11 +16,11 @@ function make() {
 }
 function alive(pid) { try { process.kill(pid, 0); return true; } catch (e) { return false; } }
 
-test('services.json lists exactly start and cancel', function () {
+test('services.json lists exactly start, install and cancel', function () {
   var svc = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'service', 'services.json'), 'utf8'));
-  assert.deepStrictEqual(svc.services[0].commands.map(function (c) { return c.name; }), ['start', 'cancel']);
+  assert.deepStrictEqual(svc.services[0].commands.map(function (c) { return c.name; }), ['start', 'install', 'cancel']);
   var s = make().service;
-  assert.deepStrictEqual(Object.keys(s.methods).sort(), ['cancel', 'start']);
+  assert.deepStrictEqual(Object.keys(s.methods).sort(), ['cancel', 'install', 'start']);
 });
 
 test('start requires a subscription', function () {

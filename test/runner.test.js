@@ -169,6 +169,22 @@ test('licence prompt is detected and explained, never answered', async function 
   var exit = events[events.length - 1];
   assert.strictEqual(exit.error.code, 'LICENSE_REQUIRED');
   assert.match(exit.error.hint, /HOME=\/media\/developer\/speedtest /);
+  assert.match(exit.error.hint, /Review terms/);
+});
+
+test('acceptTerms adds exactly --accept-license --accept-gdpr, and acceptance persists', async function () {
+  var restore = setMock({ MOCK_MODE: 'license', MOCK_SCALE: '0.1' });
+  var argsFile = path.join(tmpHome(), 'args.json');
+  process.env.MOCK_ARGS_FILE = argsFile;
+  var runner = makeRunner();
+  var first = await runCollect(runner, { acceptTerms: true });
+  assert.strictEqual(first[first.length - 1].code, 0);
+  assert.deepStrictEqual(JSON.parse(fs.readFileSync(argsFile, 'utf8')).args, FIXED_ARGS.concat(['--accept-license', '--accept-gdpr']));
+  var second = await runCollect(runner, {});
+  delete process.env.MOCK_ARGS_FILE;
+  restore();
+  assert.strictEqual(second[second.length - 1].code, 0, 'no prompt once accepted');
+  assert.deepStrictEqual(JSON.parse(fs.readFileSync(argsFile, 'utf8')).args, FIXED_ARGS);
 });
 
 test('stalled CLI is stopped by the stall timeout', async function () {
@@ -201,7 +217,7 @@ test('missing binary', async function () {
   var exit = events[events.length - 1];
   assert.strictEqual(exit.ran, false);
   assert.strictEqual(exit.error.code, 'BINARY_MISSING');
-  assert.match(exit.error.hint, /armel/);
+  assert.match(exit.error.hint, /Download Speedtest CLI/);
 });
 
 test('non-executable binary', async function () {

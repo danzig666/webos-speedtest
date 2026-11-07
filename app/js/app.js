@@ -6,7 +6,8 @@
   var SERVICE_ID = 'io.github.danzig666.speedtest.service';
   var HBCHANNEL = 'luna://org.webosbrew.hbchannel.service';
   var KEY = { LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, ENTER: 13, BACK: 461, ESC: 27, BACKSPACE: 8, PGUP: 33, PGDN: 34 };
-  var ELEVATE_CODES = ['BINARY_MISSING', 'BINARY_NO_ACCESS', 'BINARY_NOT_EXECUTABLE', 'PTY_UNAVAILABLE', 'LICENSE_REQUIRED'];
+  var ELEVATE_CODES = ['BINARY_NO_ACCESS', 'BINARY_NOT_EXECUTABLE', 'PTY_UNAVAILABLE', 'INSTALL_DENIED'];
+  var DOWNLOAD_CODES = ['BINARY_MISSING', 'BINARY_INCOMPATIBLE', 'BINARY_BROKEN', 'BINARY_INVALID', 'BINARY_NOT_EXECUTABLE'];
 
   var $ = function (id) { return document.getElementById(id); };
   var ui = {
@@ -14,6 +15,7 @@
     live: $('live'), livePhase: $('livePhase'), liveValue: $('liveValue'), liveBar: $('liveBar'), livePct: $('livePct'),
     error: $('error'), errorTitle: $('errorTitle'), errorHint: $('errorHint'),
     start: $('startBtn'), cancel: $('cancelBtn'), resultsBtn: $('resultsBtn'), elevate: $('elevateBtn'), mode: $('modeBtn'),
+    download: $('downloadBtn'), termsBtn: $('termsBtn'), terms: $('terms'), accept: $('acceptBtn'), decline: $('declineBtn'),
     again: $('againBtn'), consoleBtn: $('consoleBtn')
   };
 
@@ -77,11 +79,19 @@
     ui.errorHint.hidden = !err.hint;
     ui.error.hidden = false;
     ui.elevate.hidden = !(uid !== 0 && ELEVATE_CODES.indexOf(err.code) !== -1 && window.Luna.available());
+    ui.download.hidden = DOWNLOAD_CODES.indexOf(err.code) === -1;
+    ui.termsBtn.hidden = err.code !== 'LICENSE_REQUIRED';
+    var offer = !ui.download.hidden ? ui.download : !ui.termsBtn.hidden ? ui.termsBtn : null;
+    if (offer) setTimeout(function () { focusEl(offer); }, 0);
   }
 
   function clearError() {
     ui.error.hidden = true;
     ui.elevate.hidden = true;
+    ui.download.hidden = true;
+    ui.termsBtn.hidden = true;
+    var a = document.activeElement;
+    if (!a || a === document.body || a.hidden || a.offsetParent === null) focusEl(ui.start.disabled ? ui.cancel : ui.start);
   }
 
   function setMode(m) {
@@ -119,8 +129,10 @@
 
   /* ---------------- test lifecycle ---------------- */
 
-  function startTest() {
+  function startTest(acceptTerms) {
     if (state === 'running' || state === 'stopping') return;
+    acceptTerms = acceptTerms === true;
+    closeTerms(true);
     closeResults(true);
     clearError();
     screen.reset();
@@ -134,9 +146,9 @@
     ui.resultsBtn.hidden = true;
     ui.live.hidden = true;
     setState('running', 'Starting…');
-    writeLocal('$ speedtest --format=human-readable --progress=yes   (' + transport + ')\r\n');
+    writeLocal('$ speedtest --format=human-readable --progress=yes' + (acceptTerms ? ' --accept-license --accept-gdpr' : '') + '   (' + transport + ')\r\n');
 
-    var mySub = window.Luna.call(SERVICE + '/start', { subscribe: true, pty: transport === 'pty' }, function (r) {
+    var mySub = window.Luna.call(SERVICE + '/start', { subscribe: true, pty: transport === 'pty', acceptTerms: acceptTerms }, function (r) {
       if (sub !== mySub) return; // stale subscription
       onResponse(r);
     });
@@ -209,6 +221,69 @@
     setState(s);
   }
 
+  /* ---------------- CLI download ---------------- */
+
+  function fmtBytes(n) { return n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.round(n / 1024) + ' KB'; }
+
+  function downloadCli() {
+    if (state === 'running' || state === 'stopping') return;
+    clearError();
+    ui.live.hidden = false;
+    ui.live.classList.remove('upload');
+    ui.livePhase.textContent = 'Get CLI';
+    ui.liveValue.textContent = 'connecting…';
+    ui.liveBar.style.width = '0';
+    ui.livePct.textContent = '';
+    setState('running', 'Downloading…');
+    var mySub = window.Luna.call(SERVICE + '/install', { subscribe: true }, function (r) {
+      if (sub !== mySub) return;
+      if (r.returnValue === false) {
+        ui.live.hidden = true;
+        finish('failed');
+        showError({ code: r.errorCode, message: r.errorText || 'Download failed', hint: r.hint });
+        return;
+      }
+      if (r.event === 'install-started') {
+        writeLocal('Downloading ' + r.url + '\r\n  -> ' + r.target + '\r\n');
+      } else if (r.event === 'download') {
+        var pct = r.total ? Math.round(r.received / r.total * 100) : null;
+        ui.liveValue.textContent = fmtBytes(r.received) + (r.total ? ' / ' + fmtBytes(r.total) : '');
+        ui.liveBar.style.width = (pct || 0) + '%';
+        ui.livePct.textContent = pct === null ? '' : pct + '%';
+      } else if (r.event === 'verifying') {
+        ui.liveValue.textContent = 'checking SHA-256…';
+        writeLocal('Verifying checksum and unpacking…\r\n');
+      } else if (r.event === 'install-done') {
+        ui.live.hidden = true;
+        if (r.ok) {
+          writeLocal('Installed: ' + r.version + '\r\nPress Start test.\r\n');
+          ui.version.textContent = r.version;
+          finish('idle');
+          focusEl(ui.start);
+        } else {
+          writeLocal('Download failed.\r\n');
+          finish(r.error && r.error.code === 'CANCELLED' ? 'cancelled' : 'failed');
+          if (!(r.error && r.error.code === 'CANCELLED')) showError(r.error);
+        }
+      }
+    });
+    sub = mySub;
+  }
+
+  /* ---------------- licence / privacy terms ---------------- */
+
+  function openTerms() {
+    ui.terms.hidden = false;
+    ui.error.hidden = true;
+    focusEl(ui.decline); // accepting must be a deliberate choice
+  }
+
+  function closeTerms(silent) {
+    if (ui.terms.hidden) return;
+    ui.terms.hidden = true;
+    if (!silent) { ui.error.hidden = false; focusEl(ui.termsBtn); }
+  }
+
   function cancelTest() {
     if (state !== 'running' && state !== 'stopping') return;
     setState('stopping');
@@ -276,7 +351,7 @@
   /* ---------------- remote control navigation ---------------- */
 
   function focusables() {
-    var scope = ui.results.hidden ? ui.main : ui.results;
+    var scope = !ui.results.hidden ? ui.results : !ui.terms.hidden ? ui.terms : ui.main;
     return Array.prototype.filter.call(scope.querySelectorAll('.focusable'), function (e) {
       return !e.disabled && !e.hidden && e.offsetParent !== null;
     });
@@ -316,6 +391,7 @@
 
   function back() {
     if (!ui.results.hidden) { closeResults(); return; }
+    if (!ui.terms.hidden) { closeTerms(); return; }
     if (state === 'running' || state === 'stopping') { cancelTest(); return; }
     if (!ui.error.hidden) { clearError(); return; }
     // Top level: leave the app (this also cancels any subscription).
@@ -346,10 +422,14 @@
     if (t && !t.disabled && t !== document.activeElement) t.focus({ preventScroll: true });
   });
 
-  ui.start.addEventListener('click', startTest);
+  ui.start.addEventListener('click', function () { startTest(false); });
+  ui.download.addEventListener('click', downloadCli);
+  ui.termsBtn.addEventListener('click', openTerms);
+  ui.accept.addEventListener('click', function () { startTest(true); });
+  ui.decline.addEventListener('click', function () { closeTerms(); });
   ui.cancel.addEventListener('click', cancelTest);
   ui.resultsBtn.addEventListener('click', openResults);
-  ui.again.addEventListener('click', startTest);
+  ui.again.addEventListener('click', function () { startTest(false); });
   ui.consoleBtn.addEventListener('click', function () { closeResults(); });
   ui.elevate.addEventListener('click', elevate);
   ui.mode.addEventListener('click', function () { setMode(transport === 'pipe' ? 'pty' : 'pipe'); });

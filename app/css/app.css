@@ -30,7 +30,7 @@ html, body {
 
 .top { display: flex; align-items: center; justify-content: space-between; }
 .brand { display: flex; align-items: center; gap: 24px; }
-.logo { width: 64px; height: 64px; color: var(--accent); }
+.logo { width: 76px; height: 76px; }
 h1 { margin: 0; font-size: 48px; font-weight: 600; letter-spacing: .5px; }
 .sub { font-size: 24px; color: var(--text-secondary); margin-top: 4px; max-width: 1200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .meta { display: flex; gap: 16px; align-items: center; }
@@ -130,3 +130,14 @@ h1 { margin: 0; font-size: 48px; font-weight: 600; letter-spacing: .5px; }
 .loaded { display: flex; justify-content: space-between; gap: 32px; font-size: 24px; color: var(--text-secondary); }
 .loaded .k { color: var(--text-muted); margin-right: 10px; }
 .loaded .url span:last-child { font-family: var(--mono); color: var(--text-primary); }
+
+/* terms dialog */
+.terms { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 1280px;
+  background: var(--surface-2); border: 2px solid var(--line); border-radius: 20px; padding: 36px 48px;
+  box-shadow: 0 30px 80px rgba(0,0,0,.7); font-size: 26px; line-height: 1.45; color: var(--text-secondary); z-index: 5; }
+.terms-title { font-size: 36px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
+.terms p { margin: 14px 0; }
+.terms-links { margin: 8px 0; padding-left: 32px; font-family: var(--mono); color: var(--text-primary); }
+.terms-note { color: var(--text-muted); }
+.terms code { font-family: var(--mono); color: var(--text-primary); }
+.terms-actions { display: flex; gap: 24px; margin-top: 24px; }

@@ -17,14 +17,16 @@ var ROOT = path.join(__dirname, '..');
 process.env.SPEEDTEST_SERVICE_TEST = '1';
 process.env.MOCK_NODE = process.env.MOCK_NODE || process.execPath;
 var FakeService = require('../test/support/fake-webos-service');
-var created = require('../service/service').createService(FakeService, {
-  binary: process.env.SPEEDTEST_BIN || path.join(ROOT, 'test', 'mock', 'speedtest'),
-  home: process.env.SPEEDTEST_HOME || fs.mkdtempSync(path.join(require('os').tmpdir(), 'st-dev-')),
-  helperDir: path.join(ROOT, 'service', 'bin')
-});
-var service = created.service;
-var SERVICE_URI = 'luna://' + service.name + '/';
 
+function createDevServer(opts) {
+  opts = opts || {};
+  var created = require('../service/service').createService(FakeService, {
+    binary: opts.binary || process.env.SPEEDTEST_BIN || path.join(ROOT, 'test', 'mock', 'speedtest'),
+    home: opts.home || process.env.SPEEDTEST_HOME || fs.mkdtempSync(path.join(require('os').tmpdir(), 'st-dev-')),
+    helperDir: path.join(ROOT, 'service', 'bin')
+  }, opts.installer);
+  var service = created.service;
+  var SERVICE_URI = 'luna://' + service.name + '/';
 var TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.png': 'image/png', '.json': 'application/json', '.svg': 'image/svg+xml' };
 
 var BRIDGE = function () {
@@ -88,8 +90,16 @@ var server = http.createServer(function (req, res) {
   res.end(body);
 });
 
-var port = Number(process.argv[2] || process.env.PORT || 8099);
-server.listen(port, '127.0.0.1', function () {
-  console.log('dev harness on http://127.0.0.1:' + server.address().port + '/  (binary: ' + created.runner.config.binary + ')');
-});
-module.exports = server;
+  server.created = created;
+  return server;
+}
+
+module.exports = createDevServer;
+
+if (require.main === module) {
+  var srv = createDevServer();
+  var port = Number(process.argv[2] || process.env.PORT || 8099);
+  srv.listen(port, '127.0.0.1', function () {
+    console.log('dev harness on http://127.0.0.1:' + srv.address().port + '/  (binary: ' + srv.created.runner.config.binary + ')');
+  });
+}

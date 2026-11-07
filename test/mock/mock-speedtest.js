@@ -14,7 +14,7 @@
  * MOCK_ARGS_FILE=path write argv + pid there
  */
 var fs = require('fs');
-var mode = process.env.MOCK_MODE || 'success';
+var mode = process.env.MOCK_MODE || 'success';  // eslint-disable-line prefer-const
 var scale = Number(process.env.MOCK_SCALE || 1);
 var args = process.argv.slice(2);
 
@@ -55,6 +55,16 @@ function phase(label, finalSpeed, used, lat) {
   out(pad('', 12) + '  ' + pad(lat.toFixed(2) + ' ms', 13) + '   (jitter: 1.20ms, low: ' + (lat - 3).toFixed(2) + 'ms, high: ' + (lat + 9).toFixed(2) + 'ms)\n');
 }
 
+// Licence handling like the real CLI: stored in $HOME/.config/ookla, or
+// accepted for this run (and stored) with --accept-license --accept-gdpr.
+var licFile = require('path').join(process.env.HOME || '/nonexistent', '.config', 'ookla', 'speedtest-cli.json');
+if (mode === 'license' && (fs.existsSync(licFile) || (args.indexOf('--accept-license') !== -1 && args.indexOf('--accept-gdpr') !== -1))) {
+  if (!fs.existsSync(licFile)) {
+    fs.mkdirSync(require('path').dirname(licFile), { recursive: true });
+    fs.writeFileSync(licFile, JSON.stringify({ Settings: { LicenseAccepted: 'mock', GDPRTimeStamp: Date.now() } }));
+  }
+  mode = 'success';
+}
 if (mode === 'noservers') {
   // Exactly what the real 1.2.0 CLI printed when test servers were unreachable.
   out('\n   Speedtest by Ookla\n\n');
