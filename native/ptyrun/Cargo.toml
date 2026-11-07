@@ -1,0 +1,16 @@
+[package]
+name = "ptyrun"
+version = "1.0.0"
+edition = "2021"
+description = "Run one program on a fresh pseudo-terminal and relay its output to stdout"
+license = "MIT"
+
+[dependencies]
+libc = "0.2"
+
+[profile.release]
+opt-level = "s"
+lto = true
+panic = "abort"
+strip = true
+codegen-units = 1

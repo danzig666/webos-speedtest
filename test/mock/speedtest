@@ -1,0 +1,4 @@
+#!/bin/sh
+# Mock Ookla CLI launcher. The service runs children with a minimal PATH,
+# so the node interpreter is passed explicitly in MOCK_NODE.
+exec "${MOCK_NODE:-node}" "$(dirname "$0")/mock-speedtest.js" "$@"

@@ -1,0 +1,7 @@
+{
+  "name": "io.github.danzig666.speedtest.service",
+  "version": "1.0.0",
+  "description": "Runs the Ookla Speedtest CLI and streams its terminal output over Luna",
+  "main": "service.js",
+  "private": true
+}

@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=1920, height=1080">
+  <title>Speedtest CLI</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <main id="main" class="screen">
+    <header class="top">
+      <div class="brand">
+        <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><path d="M8 44a24 24 0 1 1 48 0" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><path d="M32 44 46 22" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><circle cx="32" cy="44" r="5" fill="currentColor"/></svg>
+        <div>
+          <h1>Speedtest CLI</h1>
+          <div id="version" class="sub">Ookla Speedtest CLI on your TV</div>
+        </div>
+      </div>
+      <div class="meta">
+        <span id="svcMode" class="chip muted" hidden></span>
+        <span id="state" class="chip state-idle" role="status">Ready</span>
+      </div>
+    </header>
+
+    <section id="live" class="live" aria-live="polite" hidden>
+      <span id="livePhase" class="phase">Connecting</span>
+      <span id="liveValue" class="value"></span>
+      <div class="meter"><div id="liveBar" class="bar"></div></div>
+      <span id="livePct" class="pct"></span>
+    </section>
+
+    <section class="console-wrap">
+      <div id="console" class="console focusable" tabindex="0" aria-label="Speedtest output" role="log"></div>
+      <div id="error" class="error" role="alert" hidden>
+        <div id="errorTitle" class="error-title"></div>
+        <pre id="errorHint" class="error-hint"></pre>
+      </div>
+    </section>
+
+    <footer class="actions">
+      <button id="startBtn" class="btn primary focusable">Start test</button>
+      <button id="cancelBtn" class="btn focusable" disabled>Cancel</button>
+      <button id="resultsBtn" class="btn focusable" hidden>Results</button>
+      <button id="elevateBtn" class="btn focusable" hidden>Elevate service</button>
+      <span class="spacer"></span>
+      <button id="modeBtn" class="btn ghost focusable" title="How the CLI output is captured">Output: pipe</button>
+      <span class="keyhint">OK select · BACK cancel/close · CH ▲▼ scroll</span>
+    </footer>
+  </main>
+
+  <section id="results" class="screen results" hidden aria-label="Test results">
+    <header class="top">
+      <div class="brand">
+        <div>
+          <h1>Results</h1>
+          <div id="resWhere" class="sub"></div>
+        </div>
+      </div>
+      <div class="meta"><span class="chip state-done">Test complete</span></div>
+    </header>
+
+    <div class="tiles">
+      <div class="tile big">
+        <div class="tile-label"><span class="swatch dl"></span>Download</div>
+        <div class="tile-value"><span id="resDl">–</span><span class="unit">Mbps</span></div>
+        <div id="resDlSub" class="tile-sub"></div>
+      </div>
+      <div class="tile big">
+        <div class="tile-label"><span class="swatch ul"></span>Upload</div>
+        <div class="tile-value"><span id="resUl">–</span><span class="unit">Mbps</span></div>
+        <div id="resUlSub" class="tile-sub"></div>
+      </div>
+      <div class="tile">
+        <div class="tile-label">Idle latency</div>
+        <div class="tile-value small"><span id="resPing">–</span><span class="unit">ms</span></div>
+        <div id="resPingSub" class="tile-sub"></div>
+      </div>
+      <div class="tile">
+        <div class="tile-label">Packet loss</div>
+        <div class="tile-value small"><span id="resLoss">–</span></div>
+        <div class="tile-sub">during the test</div>
+      </div>
+    </div>
+
+    <div class="charts">
+      <figure class="chart">
+        <figcaption>Download throughput over time</figcaption>
+        <svg id="chartDl" class="plot" role="img"></svg>
+      </figure>
+      <figure class="chart">
+        <figcaption>Upload throughput over time</figcaption>
+        <svg id="chartUl" class="plot" role="img"></svg>
+      </figure>
+    </div>
+
+    <div class="loaded">
+      <div><span class="k">Loaded latency</span> <span id="resLoaded"></span></div>
+      <div class="url"><span class="k">Result URL</span> <span id="resUrl"></span></div>
+    </div>
+
+    <footer class="actions">
+      <button id="againBtn" class="btn primary focusable">Run again</button>
+      <button id="consoleBtn" class="btn focusable">Show console</button>
+      <span class="spacer"></span>
+      <span class="keyhint">BACK returns to the console</span>
+    </footer>
+  </section>
+
+  <script src="js/terminal.js"></script>
+  <script src="js/results.js"></script>
+  <script src="js/luna.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

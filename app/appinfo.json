@@ -1,0 +1,17 @@
+{
+  "id": "io.github.danzig666.speedtest",
+  "version": "1.0.0",
+  "vendor": "danzig666",
+  "type": "web",
+  "main": "index.html",
+  "title": "Speedtest CLI",
+  "appDescription": "Runs the official Ookla Speedtest CLI on the TV and shows its live terminal output.",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "bgColor": "#0e0f12",
+  "iconColor": "#0e0f12",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true,
+  "uiRevision": 2,
+  "requiredPermissions": ["services.dev"]
+}

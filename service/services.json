@@ -1,0 +1,14 @@
+{
+  "id": "io.github.danzig666.speedtest.service",
+  "description": "Ookla Speedtest CLI runner",
+  "services": [
+    {
+      "name": "io.github.danzig666.speedtest.service",
+      "description": "Ookla Speedtest CLI runner",
+      "commands": [
+        { "name": "start", "description": "Run the fixed speedtest command; subscribe to receive live output", "public": true },
+        { "name": "cancel", "description": "Stop the running speedtest process", "public": true }
+      ]
+    }
+  ]
+}

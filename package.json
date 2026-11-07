@@ -1,0 +1,19 @@
+{
+  "name": "webos-speedtest",
+  "version": "1.0.0",
+  "description": "LG webOS Homebrew app that runs the official Ookla Speedtest CLI and shows its live terminal output",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test test/frontend.test.js test/runner.test.js test/service.test.js test/e2e.test.js",
+    "build:pty": "sh scripts/build-pty.sh",
+    "package": "node scripts/package-ipk.js",
+    "dev": "node tools/dev-server.js"
+  },
+  "devDependencies": {
+    "@webos-tools/cli": "3.2.6"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
