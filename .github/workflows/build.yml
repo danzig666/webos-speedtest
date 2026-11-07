@@ -6,6 +6,11 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      release:
+        description: 'Publish a GitHub Release tagged v<appinfo version> from this commit'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -17,6 +22,8 @@ env:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
 
@@ -57,11 +64,14 @@ jobs:
           REAL_DOWNLOAD: '1'
         run: npm test
 
-      - name: Check tag matches app version
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Release tag
+        id: version
         run: |
           v=$(node -p "require('./app/appinfo.json').version")
-          test "v$v" = "${GITHUB_REF_NAME}" || { echo "tag ${GITHUB_REF_NAME} != appinfo $v"; exit 1; }
+          echo "tag=v$v" >> "$GITHUB_OUTPUT"
+          if [ "${GITHUB_REF_TYPE}" = tag ]; then
+            test "v$v" = "${GITHUB_REF_NAME}" || { echo "tag ${GITHUB_REF_NAME} != appinfo $v"; exit 1; }
+          fi
 
       - name: Package .ipk
         run: |
@@ -83,7 +93,8 @@ jobs:
           if-no-files-found: ignore
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    # A pushed v* tag, or a manual run with "release" ticked (creates the tag).
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release)
     needs: build
     runs-on: ubuntu-24.04
     permissions:
@@ -95,10 +106,14 @@ jobs:
           path: dist
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.build.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Speedtest CLI ${{ needs.build.outputs.tag }}
           files: |
             dist/*.ipk
             dist/SHA256SUMS
           generate_release_notes: true
           body: |
-            Install with `ares-install` or Homebrew Channel. The Ookla CLI is **not** included:
-            see the README ("Binary setup") to install it on the TV and accept its terms over SSH.
+            Install the .ipk with `ares-install` or over SSH (see README). The Ookla CLI is **not** included:
+            on first start the app elevates its service through Homebrew Channel, downloads the official
+            CLI (SHA-256 pinned), and then shows Ookla's terms for you to accept.

@@ -137,7 +137,7 @@ npm run package        # -> dist/io.github.danzig666.speedtest_<ver>_all.ipk (ve
 
 **Desktop harness:** `npm run dev` serves the app at http://127.0.0.1:8099/. It runs the real `service.js` behind a `PalmServiceBridge` shim, with the mock CLI. Set `MOCK_MODE` to `fail`, `license`, or `stall`, and `MOCK_SCALE` to change the speed.
 
-**CI/release** (`.github/workflows/build.yml`): every push builds the helpers, runs all tests (including the official armel binary under QEMU), packages the .ipk, and uploads it with SHA256SUMS and screenshots as artifacts. Pushing a tag `vX.Y.Z` that matches `appinfo.json` also publishes a GitHub Release with the .ipk.
+**CI/release** (`.github/workflows/build.yml`): every push builds the helpers, runs all tests (including the official armel binary under QEMU), packages the .ipk, and uploads it with SHA256SUMS and screenshots as artifacts. Pushing a tag `vX.Y.Z` that matches `appinfo.json`, or starting the workflow by hand (Actions → Build and release → Run workflow) with **release** ticked, publishes a GitHub Release `v<appinfo version>` with the .ipk.
 
 ## Tests
 
