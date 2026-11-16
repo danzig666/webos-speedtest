@@ -78,12 +78,18 @@ jobs:
           npm run package
           cd dist && sha256sum *.ipk > SHA256SUMS && cat SHA256SUMS
 
+      - name: Release notes from CHANGELOG.md
+        run: |
+          node scripts/release-notes.js "${{ steps.version.outputs.tag }}" > dist/RELEASE_NOTES.md
+          cat dist/RELEASE_NOTES.md
+
       - uses: actions/upload-artifact@v4
         with:
           name: ipk
           path: |
             dist/*.ipk
             dist/SHA256SUMS
+            dist/RELEASE_NOTES.md
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -139,14 +145,7 @@ jobs:
             dist/*.ipk
             dist/SHA256SUMS
             homebrew/*.manifest.json
-          generate_release_notes: true
-          body: |
-            **Homebrew Channel:** Settings → Add repository →
-            `https://raw.githubusercontent.com/danzig666/webos-speedtest/main/homebrew/apps.json`
-
-            Or install the .ipk with `ares-install` or over SSH (see README). The Ookla CLI is **not** included:
-            on first start the app elevates its service through Homebrew Channel, downloads the official
-            CLI (SHA-256 pinned), and then shows Ookla's terms for you to accept.
+          body_path: dist/RELEASE_NOTES.md
 
       # Only after the release assets exist, so the index never points at a missing ipk.
       - name: Publish the repository index on main

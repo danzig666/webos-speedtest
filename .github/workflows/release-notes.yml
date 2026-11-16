@@ -1,0 +1,31 @@
+name: Sync release notes
+
+# Rewrites the notes of existing GitHub releases from CHANGELOG.md
+# (the bullet list for each version, nothing else). Run it by hand after
+# editing CHANGELOG.md; new releases already get their notes from build.yml.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Update every release that has a CHANGELOG entry
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release list --limit 100 --json tagName --jq '.[].tagName' | while read -r tag; do
+            if node scripts/release-notes.js "$tag" > notes.md 2>/dev/null; then
+              gh release edit "$tag" --notes-file notes.md
+              echo "updated $tag"; cat notes.md
+            else
+              echo "skipped $tag (no CHANGELOG entry)"
+            fi
+          done

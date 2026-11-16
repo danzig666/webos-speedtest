@@ -4,7 +4,14 @@ A webOS Homebrew app that runs the **official Ookla Speedtest CLI** on a rooted 
 
 Target: rooted LG OLED C3 (O22N), webOS 10.2.2, firmware 33.23.05, with Homebrew Channel installed.
 
-**Compatibility.** Works on the LG C3 (webOS 10.2.2). Since 1.3.1 it also targets **webOS 5** (for example a 2020 TV on webOS 5.5): JS services there run on Node.js 8.12 and the app on a Chromium 68-era engine. CI runs the service on Node.js 8.12 before each release; the app's layout avoids CSS that Chromium 68 lacks. webOS 4 also uses Node.js 8 but has an older browser engine and is untested.
+**Compatibility.** Tested and working on:
+
+| TV | webOS | Firmware | Since |
+|---|---|---|---|
+| LG OLED C3 (O22N) | 10.2.2 | 33.23.05 | 1.1.0 |
+| LG TV with K6HP SoC | 5.5.0 | 04.50.51 | 1.3.1 |
+
+Both TVs are rooted and run Homebrew Channel. On webOS 5, JS services run on Node.js 8.12 and the app on a Chromium 68-era engine. CI runs the service on Node.js 8.12 before each release, and the app's layout avoids CSS that Chromium 68 lacks. webOS 4 also uses Node.js 8 but has an older browser engine and is untested.
 
 | Live console | Results |
 |---|---|
@@ -159,7 +166,7 @@ npm run package        # -> dist/io.github.danzig666.speedtest_<ver>_all.ipk (ve
 
 **Desktop harness:** `npm run dev` serves the app at http://127.0.0.1:8099/. It runs the real `service.js` behind a `PalmServiceBridge` shim, with the mock CLI. Set `MOCK_MODE` to `fail`, `license`, or `stall`, and `MOCK_SCALE` to change the speed.
 
-**CI/release** (`.github/workflows/build.yml`): every push builds the helpers, runs all tests (including the official armel binary under QEMU), packages the .ipk, and uploads it with SHA256SUMS and screenshots as artifacts. Pushing a tag `vX.Y.Z` that matches `appinfo.json`, or starting the workflow by hand (Actions → Build and release → Run workflow) with **release** ticked, publishes a GitHub Release `v<appinfo version>` with the .ipk.
+**CI/release** (`.github/workflows/build.yml`): every push builds the helpers, runs all tests (including the official armel binary under QEMU), packages the .ipk, and uploads it with SHA256SUMS and screenshots as artifacts. Pushing a tag `vX.Y.Z` that matches `appinfo.json`, or starting the workflow by hand (Actions → Build and release → Run workflow) with **release** ticked, publishes a GitHub Release `v<appinfo version>` with the .ipk. The release notes are that version's bullet list from [`CHANGELOG.md`](CHANGELOG.md), and CI fails if the current version has no entry there. After editing older entries, run **Sync release notes** in the Actions tab to update the existing releases.
 
 ## Tests
 
@@ -221,6 +228,7 @@ tail -f /var/log/messages | grep -i speedtest
 | In-app download: pinned SHA-256 matches the official armel/aarch64/x86_64 archives; extracting the armel archive yields the official 2,287,444-byte ARM binary | Archives downloaded in the sandbox; CI repeats it against `install.speedtest.net` |
 | UI with remote keys, results screen | Chromium (Playwright) via the dev harness |
 | App on the LG C3 / webOS 10.2.2 | **Reported working by the owner** (v1.1.0). The download failed until the service was elevated, so v1.2.0 elevates first. |
+| App on a webOS 5.5 TV (firmware 04.50.51) | **Reported working by the owner** (v1.3.1). Versions before 1.3.1 got stuck at "Busy" (Node.js 8) and had a squashed layout (Chromium 68). |
 
 Still to verify on the TV, in this order:
 
