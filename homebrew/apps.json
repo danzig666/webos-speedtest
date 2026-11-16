@@ -15,18 +15,18 @@
       "manifestUrl": "https://raw.githubusercontent.com/danzig666/webos-speedtest/main/homebrew/io.github.danzig666.speedtest.manifest.json",
       "manifest": {
         "id": "io.github.danzig666.speedtest",
-        "version": "1.3.0",
+        "version": "1.3.1",
         "type": "web",
         "title": "Speedtest CLI",
         "appDescription": "Runs the official Ookla Speedtest CLI on the TV and shows its live terminal output.",
         "iconUri": "https://raw.githubusercontent.com/danzig666/webos-speedtest/main/app/largeIcon.png",
         "sourceUrl": "https://github.com/danzig666/webos-speedtest",
         "rootRequired": true,
-        "ipkUrl": "https://github.com/danzig666/webos-speedtest/releases/download/v1.3.0/io.github.danzig666.speedtest_1.3.0_all.ipk",
+        "ipkUrl": "https://github.com/danzig666/webos-speedtest/releases/download/v1.3.1/io.github.danzig666.speedtest_1.3.1_all.ipk",
         "ipkHash": {
-          "sha256": "24015051c7f69be9323765bdcfbebaadadc5cf21eb699ffc470ae12001473b4f"
+          "sha256": "8e2968181d3c6b14e862e25a21875b4149ef9298804407eb754883af011e3060"
         },
-        "ipkSize": 452622
+        "ipkSize": 453642
       },
       "pool": "main",
       "requirements": {
