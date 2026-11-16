@@ -128,6 +128,16 @@ test('cancel stops a download; tests and downloads exclude each other', async fu
   assert.strictEqual(s.installer.isActive(), false);
 });
 
+test('a download that fails to start never leaves the service busy', async function () {
+  // Port 99999 makes http.get throw synchronously (like an unsupported API on old Node).
+  var s = setup({ url: 'http://127.0.0.1:99999/x.tgz', sha256: ARCHIVE.sha256 });
+  var done = (await install(s.installer)).pop();
+  assert.strictEqual(done.ok, false);
+  assert.strictEqual(done.error.code, 'DOWNLOAD_FAILED');
+  assert.strictEqual(s.installer.isActive(), false);
+  assert.ok(!s.runner.blockedBy, 'tests can start again');
+});
+
 test('archive without a speedtest member is rejected', async function (t) {
   var d = tmp();
   fs.writeFileSync(path.join(d, 'readme'), 'x');

@@ -92,10 +92,23 @@ jobs:
           path: test-results/
           if-no-files-found: ignore
 
+  node8:
+    # webOS 4.x/5.x run JS services on Node 8.12 (e.g. an LG webOS 5.5 TV).
+    name: Service on Node 8.12 (webOS 4/5)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 8.12.0
+      - run: node --version
+      - name: Install, stream, cancel and re-run on Node 8
+        run: node test/compat/node8-smoke.js
+
   release:
     # A pushed v* tag, or a manual run with "release" ticked (creates the tag).
     if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release)
-    needs: build
+    needs: [build, node8]
     runs-on: ubuntu-24.04
     permissions:
       contents: write

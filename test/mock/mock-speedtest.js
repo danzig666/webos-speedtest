@@ -14,6 +14,7 @@
  * MOCK_ARGS_FILE=path write argv + pid there
  */
 var fs = require('fs');
+var path = require('path');
 var mode = process.env.MOCK_MODE || 'success';  // eslint-disable-line prefer-const
 var scale = Number(process.env.MOCK_SCALE || 1);
 var args = process.argv.slice(2);
@@ -60,7 +61,9 @@ function phase(label, finalSpeed, used, lat) {
 var licFile = require('path').join(process.env.HOME || '/nonexistent', '.config', 'ookla', 'speedtest-cli.json');
 if (mode === 'license' && (fs.existsSync(licFile) || (args.indexOf('--accept-license') !== -1 && args.indexOf('--accept-gdpr') !== -1))) {
   if (!fs.existsSync(licFile)) {
-    fs.mkdirSync(require('path').dirname(licFile), { recursive: true });
+    var licDir = require('path').dirname(licFile);
+    if (!fs.existsSync(path.dirname(licDir))) fs.mkdirSync(path.dirname(licDir));
+    if (!fs.existsSync(licDir)) fs.mkdirSync(licDir);
     fs.writeFileSync(licFile, JSON.stringify({ Settings: { LicenseAccepted: 'mock', GDPRTimeStamp: Date.now() } }));
   }
   mode = 'success';

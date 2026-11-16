@@ -4,6 +4,8 @@ A webOS Homebrew app that runs the **official Ookla Speedtest CLI** on a rooted 
 
 Target: rooted LG OLED C3 (O22N), webOS 10.2.2, firmware 33.23.05, with Homebrew Channel installed.
 
+**Compatibility.** Works on the LG C3 (webOS 10.2.2). Since 1.3.1 it also targets **webOS 5** (for example a 2020 TV on webOS 5.5): JS services there run on Node.js 8.12 and the app on a Chromium 68-era engine. CI runs the service on Node.js 8.12 before each release; the app's layout avoids CSS that Chromium 68 lacks. webOS 4 also uses Node.js 8 but has an older browser engine and is untested.
+
 | Live console | Results |
 |---|---|
 | ![console](docs/console-running.png) | ![results](docs/results.png) |

@@ -115,7 +115,10 @@ Installer.prototype.install = function (onEvent) {
   this.runner.blockedBy = 'install';
 
   var done = false;
-  var timer = setTimeout(function () { finish(err('DOWNLOAD_TIMEOUT', 'The download took too long.', 'Check the TV\'s internet connection and try again.')); }, cfg.timeoutMs);
+  var timer = setTimeout(function () {
+    if (job.req) { try { job.req.destroy(); } catch (x) { /* ignore */ } }
+    finish(err('DOWNLOAD_TIMEOUT', 'The download took too long.', 'Check the TV\'s internet connection and try again.'));
+  }, cfg.timeoutMs);
   function emit(e) { try { onEvent(e); } catch (x) { /* ignore */ } }
   function finish(error, version) {
     if (done) return;
@@ -135,6 +138,16 @@ Installer.prototype.install = function (onEvent) {
   }
   emit({ event: 'install-started', url: cfg.url, target: target });
 
+  // Whatever goes wrong below must end the job; otherwise every later
+  // Start would be refused as "busy" until the service restarts.
+  try {
+    runDownload();
+  } catch (e0) {
+    finish(err('DOWNLOAD_FAILED', 'Download failed: ' + e0.message));
+  }
+  return job;
+
+  function runDownload() {
   download(cfg.url, job, function (p) { emit({ event: 'download', received: p.received, total: p.total }); }, function (e1, body) {
     if (e1) return finish(job.cancelled ? null : e1);
     emit({ event: 'verifying' });
@@ -162,7 +175,7 @@ Installer.prototype.install = function (onEvent) {
       });
     });
   });
-  return job;
+  }
 };
 
 /** Has the CLI already stored licence acceptance for this HOME? */
@@ -175,11 +188,18 @@ function termsAccepted(home) {
   }
 }
 
+// fs.mkdirSync(dir, {recursive: true}) only exists from Node 10.12.
+function mkdirp(dir) {
+  if (fs.existsSync(dir)) return;
+  mkdirp(path.dirname(dir));
+  try { fs.mkdirSync(dir); } catch (e) { if (e.code !== 'EEXIST') throw e; }
+}
+
 function writeBinary(target, data, cb) {
   var dir = path.dirname(target);
   var tmp = target + '.download';
   try {
-    fs.mkdirSync(dir, { recursive: true });
+    mkdirp(dir);
     fs.writeFileSync(tmp, data, { mode: 493 });
     fs.chmodSync(tmp, 493);
     fs.renameSync(tmp, target);
@@ -199,7 +219,10 @@ function download(url, job, onProgress, cb0, redirects) {
   var u = urlLib.parse(url);
   var mod = u.protocol === 'https:' ? https : u.protocol === 'http:' ? http : null;
   if (!mod) return cb(err('DOWNLOAD_FAILED', 'Unsupported URL ' + url));
-  var req = mod.get(url, { headers: { 'User-Agent': 'webos-speedtest-installer' }, timeout: 30000 }, function (res) {
+  // http.get(url, options, cb) only exists from Node 10.9; webOS 4/5 ship Node 8.
+  var opts = { protocol: u.protocol, hostname: u.hostname, port: u.port, path: u.path,
+    headers: { 'User-Agent': 'webos-speedtest-installer' }, timeout: 30000 };
+  var req = mod.get(opts, function (res) {
     if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
       res.resume();
       if (redirects >= 5) return cb(err('DOWNLOAD_FAILED', 'Too many redirects.'));
